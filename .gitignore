@@ -12,6 +12,7 @@ credentials*.json
 secrets/
 
 *.sql
+!/database/schema.sql
 *.dump
 *.backup
 data/
