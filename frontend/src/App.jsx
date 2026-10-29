@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import SiteLayout from './components/SiteLayout';
 import LoginForm from './components/LoginForm';
 import StaffArea from './components/StaffArea';
@@ -23,6 +23,8 @@ function readPage() {
     if (!page || page === 'home') return 'courses';
     if (['courses', 'selected', 'staff'].includes(page)) return page;
     if (/^courses\/[1-9]\d*$/.test(page) && Number(page.split('/')[1]) <= 2147483647) return page;
+    if (/^staff\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
+        (!page.split('/')[2] || Number(page.split('/')[2]) <= 2147483647)) return page;
     return 'notFound';
 }
 
@@ -75,6 +77,11 @@ function App() {
     const catalogVersion = useRef(0);
     const text = { ...translations.en, ...translations[language] };
     const admin = session.status === 'ready' ? session.admin : null;
+    const staffPage = page === 'staff' || page.startsWith('staff/');
+    const expireStaffSession = useCallback(function expireSession() {
+        sessionVersion.current += 1;
+        setSession({ status: 'ready', admin: null, notice: 'sessionExpired' });
+    }, []);
     const detailId = page.startsWith('courses/') ? Number(page.split('/')[1]) : null;
     const currentCourse = detailCourse?.id === detailId ? detailCourse
         : catalog.courses.find(function matchingCourse(course) { return course.id === detailId; });
@@ -83,7 +90,8 @@ function App() {
     });
     const total = selectedCourses.reduce(function addFee(sum, course) { return sum + feeCents(course.fee); }, 0);
     let title = text.courses;
-    if (page === 'staff') title = admin ? text.staffArea : text.staffLogin;
+    if (staffPage) title = !admin ? text.staffLogin : page.startsWith('staff/registrations/') ? text.registrationDetails
+        : page === 'staff/registrations' ? text.registrations : page.startsWith('staff/courses/') ? text.courseWorkspace : text.staffCourses;
     else if (page === 'selected') title = text.selectedCourses;
     else if (detailId) title = courseText(currentCourse?.title, language) || text.courseDetails;
     else if (page === 'notFound') title = text.pageNotFound;
@@ -114,7 +122,7 @@ function App() {
     }, [selection.ids]);
 
     useEffect(function loadPublicCourses() {
-        if (page === 'staff' || page === 'notFound') return;
+        if (page === 'staff' || page.startsWith('staff/') || page === 'notFound') return;
         let ignore = false;
         const version = ++catalogVersion.current;
         async function loadCourses() {
@@ -342,9 +350,8 @@ function App() {
     return (
         <SiteLayout text={text} language={language} onLanguageChange={changeLanguage}
             page={page} admin={admin} title={title} selectedCount={selection.ids.length}>
-            {page !== 'staff' ? (
+            {!staffPage ? (
                 <>
-                    <p className="course-demo-notice">{text.demoNotice}</p>
                     {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : (
                         <>
                             <div className="selection-toolbar">
@@ -385,7 +392,8 @@ function App() {
                     <button type="button" onClick={retrySession}>{text.tryAgain}</button>
                 </section>
             ) : admin ? (
-                <StaffArea text={text} admin={admin} busy={busy} feedback={feedback} onLogout={handleLogout} />
+                <StaffArea key={admin.id} text={text} language={language} page={page} admin={admin} busy={busy}
+                    feedback={feedback} onLogout={handleLogout} onSessionExpired={expireStaffSession} />
             ) : (
                 <LoginForm text={text} busy={busy} feedback={feedback}
                     notice={session.notice} retryAt={retryAt} onLogin={handleLogin} />

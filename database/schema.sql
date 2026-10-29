@@ -303,6 +303,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     first_publication BOOLEAN;
+    old_structure JSONB;
+    new_structure JSONB;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         IF OLD.published_at IS NOT NULL THEN
@@ -320,8 +322,22 @@ BEGIN
         RAISE EXCEPTION 'Create the draft course question bank before publishing the course.' USING ERRCODE = '23514';
     END IF;
     IF TG_OP = 'UPDATE' AND OLD.published_at IS NOT NULL THEN
+        IF NEW.sessions IS DISTINCT FROM OLD.sessions THEN
+            IF NOT valid_sessions(NEW.sessions, NEW.mode) THEN
+                RAISE EXCEPTION 'Session content is invalid.' USING ERRCODE = '23514';
+            END IF;
+            SELECT jsonb_agg((item - ARRAY['topic', 'description', 'speaker'])
+                   || jsonb_build_object('has_description', item ? 'description', 'has_speaker', item ? 'speaker') ORDER BY position)
+            INTO old_structure FROM jsonb_array_elements(OLD.sessions) WITH ORDINALITY AS sessions(item, position);
+            SELECT jsonb_agg((item - ARRAY['topic', 'description', 'speaker'])
+                   || jsonb_build_object('has_description', item ? 'description', 'has_speaker', item ? 'speaker') ORDER BY position)
+            INTO new_structure FROM jsonb_array_elements(NEW.sessions) WITH ORDINALITY AS sessions(item, position);
+            IF new_structure IS DISTINCT FROM old_structure
+               OR EXISTS (SELECT 1 FROM registration WHERE course_id = OLD.id) THEN
+                RAISE EXCEPTION 'Published session structure is fixed; wording is fixed once registrations exist.' USING ERRCODE = '23514';
+            END IF;
+        END IF;
         IF NEW.published_at IS DISTINCT FROM OLD.published_at
-           OR NEW.sessions IS DISTINCT FROM OLD.sessions
            OR NEW.mode IS DISTINCT FROM OLD.mode
            OR NEW.attendance_requirement_percent IS DISTINCT FROM OLD.attendance_requirement_percent THEN
             RAISE EXCEPTION 'Published session definitions and attendance requirements are fixed.' USING ERRCODE = '23514';
@@ -344,17 +360,30 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     published TIMESTAMPTZ;
+    wording_only BOOLEAN := FALSE;
+    old_structure JSONB;
+    new_structure JSONB;
 BEGIN
     IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NULL; END IF;
+    IF TG_TABLE_NAME = 'question' AND TG_OP = 'UPDATE' THEN
+        IF NEW.id = OLD.id AND NEW.course_id = OLD.course_id AND NEW.created_at = OLD.created_at
+           AND valid_questions(NEW.definition) THEN
+            SELECT jsonb_agg(item - 'label' ORDER BY position) INTO old_structure
+            FROM jsonb_array_elements(OLD.definition->'questions') WITH ORDINALITY AS questions(item, position);
+            SELECT jsonb_agg(item - 'label' ORDER BY position) INTO new_structure
+            FROM jsonb_array_elements(NEW.definition->'questions') WITH ORDINALITY AS questions(item, position);
+            wording_only := new_structure IS NOT DISTINCT FROM old_structure;
+        END IF;
+    END IF;
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
         SELECT published_at INTO published FROM course WHERE id = OLD.course_id FOR UPDATE;
-        IF published IS NOT NULL THEN
+        IF published IS NOT NULL AND (NOT wording_only OR EXISTS (SELECT 1 FROM registration WHERE course_id = OLD.course_id)) THEN
             RAISE EXCEPTION 'Published course questions and certificate wording are fixed.' USING ERRCODE = '23514';
         END IF;
     END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
         SELECT published_at INTO published FROM course WHERE id = NEW.course_id FOR UPDATE;
-        IF published IS NOT NULL THEN
+        IF published IS NOT NULL AND (NOT wording_only OR EXISTS (SELECT 1 FROM registration WHERE course_id = NEW.course_id)) THEN
             RAISE EXCEPTION 'Published course questions and certificate wording are fixed.' USING ERRCODE = '23514';
         END IF;
     END IF;

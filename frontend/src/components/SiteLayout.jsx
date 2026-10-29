@@ -1,4 +1,5 @@
 function SiteLayout({ text, language, onLanguageChange, page, admin, title, selectedCount, children }) {
+    const staffPage = page === 'staff' || page.startsWith('staff/');
     const languages = [
         { code: 'en', label: 'EN', name: 'English' },
         { code: 'zh-Hant', label: '繁', name: '繁體中文' },
@@ -27,23 +28,29 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                             })}
                         </div>
                         <a className="button staff-access" href="#staff"
-                            aria-current={page === 'staff' ? 'page' : undefined}>
+                            aria-current={staffPage ? 'page' : undefined}>
                             {admin ? text.staffArea : text.staffLogin}
                         </a>
                     </div>
                 </div>
                 <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
+                    {staffPage ? <>
+                        {admin && <><a href="#staff/courses" aria-current={page === 'staff' || page.startsWith('staff/courses') ? 'page' : undefined}>{text.staffCourses}</a>
+                            <a href="#staff/registrations" aria-current={page.startsWith('staff/registrations') ? 'page' : undefined}>{text.registrations}</a></>}
+                        <a href="#courses">{text.publicCourses}</a>
+                    </> : <>
                     <a href="#courses" aria-current={page.startsWith('courses') ? 'page' : undefined}>{text.courses}</a>
                     <a href="#selected" aria-current={page === 'selected' ? 'page' : undefined}>
                         {text.selectedCourses} ({selectedCount})
                     </a>
+                    </>}
                 </nav>
             </header>
             <main id="main-content" className="main-content content-width" tabIndex="-1">
                 {page !== 'courses' && (
                     <nav className="breadcrumb" aria-label={text.breadcrumb}>
                         <ol>
-                            <li><a href="#courses">{text.courses}</a></li>
+                            <li><a href={staffPage && admin ? '#staff/courses' : '#courses'}>{staffPage && admin ? text.staffArea : text.courses}</a></li>
                             <li aria-current="page">{title}</li>
                         </ol>
                     </nav>
@@ -52,7 +59,7 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                 {children}
             </main>
             <footer className="site-footer">
-                <div className="content-width">{text.prototype}</div>
+                <div className="content-width">{text.siteName}</div>
             </footer>
         </div>
     );

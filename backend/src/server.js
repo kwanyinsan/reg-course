@@ -12,6 +12,7 @@ const requireAdmin = require('./auth');
 const { sessionMiddleware, startSession, endSession } = require('./session');
 const { requireTrustedRequest, limitLoginAttempts } = require('./security');
 const { router: courseRoutes } = require('./courses');
+const staffRoutes = require('./staff');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -30,6 +31,7 @@ app.use(requireTrustedRequest);
 app.use('/login', limitLoginAttempts);
 app.use(express.json({ limit: '16kb', strict: false }));
 app.use(sessionMiddleware);
+app.use('/staff', requireAdmin, staffRoutes);
 
 app.post('/login', async function login(req, res) {
     const body = req.body;

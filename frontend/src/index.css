@@ -403,12 +403,6 @@ p {
 }
 
 /* Public course pages: keep these rules separate from the accepted login form. */
-.course-demo-notice {
-    padding: 12px 16px;
-    border-left: 3px solid #806014;
-    background: #f5f5f5;
-}
-
 .selection-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -668,5 +662,222 @@ p {
 
     .selected-course-list button {
         justify-self: start;
+    }
+}
+
+/* Protected staff viewing pages. */
+.staff-workspace,
+.staff-workspace section,
+.staff-registration-details {
+    min-width: 0;
+}
+
+.staff-account {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding: 16px;
+    background: #f5f5f5;
+}
+
+.staff-account p {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.staff-workspace h2,
+.staff-workspace h3 {
+    color: var(--navy);
+    overflow-wrap: anywhere;
+}
+
+.staff-filters {
+    display: grid;
+    grid-template-columns: minmax(200px, 2fr) repeat(2, minmax(140px, 1fr)) auto auto;
+    align-items: end;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 20px 16px;
+    background: #f0ecd9;
+}
+
+.staff-filters label {
+    display: block;
+    min-width: 0;
+}
+
+.staff-filters input,
+.staff-filters select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid #707070;
+    border-radius: 0;
+    color: #000;
+    background: #fff;
+    font: inherit;
+}
+
+.staff-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin-block: 24px;
+}
+
+.staff-table th,
+.staff-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.staff-table th {
+    color: var(--navy);
+    background: #eee;
+    font-weight: 500;
+}
+
+.staff-table tbody tr:nth-child(even) {
+    background: #f8f8f8;
+}
+
+.staff-table td > span {
+    display: block;
+    margin-top: 8px;
+}
+
+.staff-course-table th:first-child {
+    width: 28%;
+}
+
+.staff-registration-table th:nth-child(2) {
+    width: 20%;
+}
+
+.staff-registration-table th:nth-child(3) {
+    width: 24%;
+}
+
+.staff-row-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+}
+
+.staff-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-block: 24px 32px;
+}
+
+.staff-pagination p {
+    margin: 0 auto 0 0;
+}
+
+.staff-fields {
+    margin: 0;
+}
+
+.staff-fields > div {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 8px 24px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.staff-fields dt {
+    color: var(--navy);
+}
+
+.staff-fields dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.staff-related {
+    padding-left: 24px;
+}
+
+.staff-related li {
+    margin-block: 16px;
+    overflow-wrap: anywhere;
+}
+
+.staff-related span {
+    display: block;
+}
+
+@media (max-width: 991px) {
+    .staff-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .staff-filters label:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .staff-table,
+    .staff-table tbody {
+        display: block;
+    }
+
+    .staff-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .staff-table tbody {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .staff-table tr {
+        display: block;
+        min-width: 0;
+        border-top: 2px solid var(--teal);
+        background: #f8f8f8;
+    }
+
+    .staff-table td {
+        display: block;
+        padding: 12px 16px;
+    }
+
+    .staff-table td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 6px;
+        color: var(--navy);
+        font-weight: 700;
+    }
+}
+
+@media (max-width: 600px) {
+    .staff-filters,
+    .staff-table tbody,
+    .staff-fields > div {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .staff-pagination p {
+        flex-basis: 100%;
     }
 }

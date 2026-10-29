@@ -4,9 +4,9 @@ const courses = require('./demo-courses');
 const definition = { questions: [{
     id: 'demo_learning_goal',
     label: {
-        en: 'Demo only: What would you like to learn?',
-        'zh-Hant': '僅供示範：你希望學習甚麼？',
-        'zh-Hans': '仅供示范：你希望学习什么？',
+        en: 'What would you like to learn?',
+        'zh-Hant': '你希望學習甚麼？',
+        'zh-Hans': '你希望学习什么？',
     },
     type: 'text', required: false,
 }] };
@@ -19,6 +19,13 @@ async function insertDemoCourses(client) {
     }
     const result = { inserted: 0, skipped: 0 };
     for (const course of courses) {
+        const existing = await client.query('SELECT id FROM course WHERE code = $1 OR code = $2 FOR UPDATE',
+            [course.code, `DEMO-${course.code}`]);
+        if (existing.rowCount > 1) throw new Error(`Both legacy and current codes exist for ${course.code}.`);
+        if (existing.rowCount) {
+            result.skipped += 1;
+            continue;
+        }
         const inserted = await client.query(
             `INSERT INTO course
              (code, title, short_description, long_description, information, mode, sessions,

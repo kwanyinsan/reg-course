@@ -104,4 +104,4 @@ router.get('/:id', async function courseDetails(req, res, next) {
     }
 });
 
-module.exports = { router, availability, publicInformation };
+module.exports = { router, availability, publicInformation, courseSummary };
