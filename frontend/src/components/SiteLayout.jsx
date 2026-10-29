@@ -1,4 +1,4 @@
-function SiteLayout({ text, language, onLanguageChange, page, admin, title, children }) {
+function SiteLayout({ text, language, onLanguageChange, page, admin, title, selectedCount, children }) {
     const languages = [
         { code: 'en', label: 'EN', name: 'English' },
         { code: 'zh-Hant', label: '繁', name: '繁體中文' },
@@ -13,7 +13,7 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, chil
             }}>{text.skipToContent}</a>
             <header className="site-header">
                 <div className="header-content content-width">
-                    <a className="site-name" href="#home">{text.siteName}</a>
+                    <a className="site-name" href="#courses">{text.siteName}</a>
                     <div className="header-actions">
                         <div className="language-controls" role="group" aria-label={text.language}>
                             {languages.map(function languageButton(item) {
@@ -33,19 +33,22 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, chil
                     </div>
                 </div>
                 <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
-                    <a href="#home" aria-current={page === 'home' ? 'page' : undefined}>{text.home}</a>
+                    <a href="#courses" aria-current={page.startsWith('courses') ? 'page' : undefined}>{text.courses}</a>
+                    <a href="#selected" aria-current={page === 'selected' ? 'page' : undefined}>
+                        {text.selectedCourses} ({selectedCount})
+                    </a>
                 </nav>
             </header>
             <main id="main-content" className="main-content content-width" tabIndex="-1">
-                {page === 'staff' && (
+                {page !== 'courses' && (
                     <nav className="breadcrumb" aria-label={text.breadcrumb}>
                         <ol>
-                            <li><a href="#home">{text.home}</a></li>
+                            <li><a href="#courses">{text.courses}</a></li>
                             <li aria-current="page">{title}</li>
                         </ol>
                     </nav>
                 )}
-                <h1 id="page-title">{title}</h1>
+                <h1 id="page-title" tabIndex="-1">{title}</h1>
                 {children}
             </main>
             <footer className="site-footer">

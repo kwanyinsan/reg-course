@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/db.js && node --check src/check-db.js && node --check src/seed.js && node --check src/session.js && node --check src/auth.js && node --check src/security.js && node --check src/log.js",
+    "check": "node --check src/server.js && node --check src/db.js && node --check src/check-db.js && node --check src/seed.js && node --check src/session.js && node --check src/auth.js && node --check src/security.js && node --check src/log.js && node --check src/courses.js && node --check src/demo-courses.js && node --check src/seed-demo-courses.js",
     "db:check": "node src/check-db.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "seed:demo": "node src/seed-demo-courses.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

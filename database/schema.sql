@@ -45,16 +45,17 @@ BEGIN
     END IF;
     FOR session IN SELECT jsonb_array_elements(value) LOOP
         IF jsonb_typeof(session) <> 'object'
-           OR NOT session ?& ARRAY['id', 'starts_at', 'ends_at', 'topic', 'description', 'speaker', 'mode']
-           OR (SELECT COUNT(*) FROM jsonb_object_keys(session)) <> 7
+           OR NOT session ?& ARRAY['id', 'starts_at', 'ends_at', 'topic', 'mode']
+           OR EXISTS (SELECT 1 FROM jsonb_object_keys(session) AS field
+                      WHERE field NOT IN ('id', 'starts_at', 'ends_at', 'topic', 'mode', 'description', 'speaker'))
            OR jsonb_typeof(session->'id') <> 'string'
            OR (session->>'id') !~ '^[a-z][a-z0-9_]*$'
            OR (session->>'id') = ANY(session_ids)
            OR NOT valid_offset_time(session->>'starts_at')
            OR NOT valid_offset_time(session->>'ends_at')
            OR NOT valid_text_translations(session->'topic')
-           OR NOT valid_text_translations(session->'description')
-           OR NOT valid_text_translations(session->'speaker')
+           OR (session ? 'description' AND NOT valid_text_translations(session->'description'))
+           OR (session ? 'speaker' AND NOT valid_text_translations(session->'speaker'))
            OR jsonb_typeof(session->'mode') IS DISTINCT FROM 'string'
            OR (session->>'mode') NOT IN ('in_person', 'virtual') THEN
             RETURN FALSE;
