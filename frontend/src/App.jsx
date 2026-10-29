@@ -1,101 +1,242 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react';
+import SiteLayout from './components/SiteLayout';
+import LoginForm from './components/LoginForm';
+import StaffArea from './components/StaffArea';
+import translations from './translations';
 
-function App() {
-  const [connection, setConnection] = useState({
-    status: 'loading',
-    message: 'Waiting for a response from the backend.',
-  })
-  const [requestNumber, setRequestNumber] = useState(0)
-
-  useEffect(function checkBackendConnection() {
-    const controller = new AbortController()
-    let ignore = false
-    const timeout = setTimeout(function stopSlowRequest() {
-      controller.abort()
-    }, 10000)
-
-    async function requestStatus() {
-      try {
-        const response = await fetch('/api/status', {
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error('The backend returned an unsuccessful response.')
-        }
-
-        const data = await response.json()
-
-        if (data.status !== 'ok' || typeof data.message !== 'string') {
-          throw new Error('The backend returned an unexpected response.')
-        }
-
-        if (!ignore) {
-          setConnection({ status: 'success', message: data.message })
-        }
-      } catch (error) {
-        if (!ignore) {
-          setConnection({
-            status: 'error',
-            message: error.name === 'AbortError'
-              ? 'The connection check timed out. Check that the backend is running and try again.'
-              : 'The connection check did not succeed. Check that the backend is running and try again.',
-          })
-        }
-      } finally {
-        clearTimeout(timeout)
-      }
+function readLanguage() {
+    try {
+        const saved = localStorage.getItem('reg-course.language');
+        if (Object.hasOwn(translations, saved)) return saved;
+    } catch {
+        // Language switching still works when browser storage is unavailable.
     }
-
-    requestStatus()
-
-    return function cancelConnectionCheck() {
-      ignore = true
-      clearTimeout(timeout)
-      controller.abort()
-    }
-  }, [requestNumber])
-
-  function handleCheckAgain() {
-    setConnection({
-      status: 'loading',
-      message: 'Waiting for a response from the backend.',
-    })
-    setRequestNumber(function incrementRequestNumber(previousNumber) {
-      return previousNumber + 1
-    })
-  }
-
-  const isLoading = connection.status === 'loading'
-  let statusTitle = 'Checking backend connection…'
-  let buttonLabel = 'Checking…'
-
-  if (connection.status === 'success') {
-    statusTitle = 'Connected'
-    buttonLabel = 'Check again'
-  } else if (connection.status === 'error') {
-    statusTitle = 'Connection failed'
-    buttonLabel = 'Try again'
-  }
-
-  return (
-    <main className="connection-card" aria-labelledby="page-title">
-      <h1 id="page-title">Course registration</h1>
-      <p className="subtitle">Development connection check</p>
-
-      <div className={`connection-status ${connection.status}`} role="status" aria-atomic="true">
-        <h2>
-          <span className="status-indicator" aria-hidden="true" />
-          {statusTitle}
-        </h2>
-        <p>{connection.message}</p>
-      </div>
-
-      <button type="button" onClick={handleCheckAgain} disabled={isLoading}>
-        {buttonLabel}
-      </button>
-    </main>
-  )
+    return 'en';
 }
 
-export default App
+function readPage() {
+    return window.location.hash === '#staff' ? 'staff' : 'home';
+}
+
+async function requestJson(path, options = {}) {
+    const response = await fetch(`/api/${path}`, {
+        ...options,
+        signal: AbortSignal.timeout(10000),
+    });
+    const data = await response.json().catch(function invalidJson() { return null; });
+    return { response, data };
+}
+
+function hasAdmin(data) {
+    return Number.isInteger(data?.admin?.id) && typeof data.admin.username === 'string';
+}
+
+function errorKey(status) {
+    if (status === 400 || status === 413 || status === 415) return 'invalidRequest';
+    if (status === 401) return 'invalidCredentials';
+    if (status === 403) return 'requestRejected';
+    if (status === 429) return 'tooManyAttempts';
+    return 'serverError';
+}
+
+const jsonHeaders = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'reg-course',
+};
+
+function App() {
+    const [language, setLanguage] = useState(readLanguage);
+    const [page, setPage] = useState(readPage);
+    const [session, setSession] = useState({ status: 'checking', admin: null, notice: '' });
+    const [sessionCheck, setSessionCheck] = useState(0);
+    const [busy, setBusy] = useState(false);
+    const [feedback, setFeedback] = useState('');
+    const [retryAt, setRetryAt] = useState(0);
+    const operationPending = useRef(false);
+    const sessionVersion = useRef(0);
+    const text = { ...translations.en, ...translations[language] };
+    const admin = session.status === 'ready' ? session.admin : null;
+    const title = page === 'home' ? text.siteName : admin ? text.staffArea : text.staffLogin;
+
+    useEffect(function updateDocument() {
+        document.documentElement.lang = language;
+        document.title = page === 'home' ? text.siteName : `${title} | ${text.siteName}`;
+    }, [language, page, title, text.siteName]);
+
+    useEffect(function watchNavigation() {
+        function changePage() {
+            setPage(readPage());
+        }
+        window.addEventListener('hashchange', changePage);
+        return function stopWatching() { window.removeEventListener('hashchange', changePage); };
+    }, []);
+
+    useEffect(function restoreSession() {
+        if (operationPending.current) return;
+        let ignore = false;
+        const version = sessionVersion.current;
+
+        async function loadCurrentAdmin() {
+            try {
+                const { response, data } = await requestJson('current');
+                if (ignore || version !== sessionVersion.current) return;
+                if (response.ok && hasAdmin(data)) {
+                    setSession({ status: 'ready', admin: data.admin, notice: '' });
+                } else if (response.status === 401) {
+                    setSession(function signedOut(previous) {
+                        const notice = ['sessionExpired', 'loggedOut', 'logoutWarning'].includes(previous.notice)
+                            ? previous.notice : '';
+                        return { status: 'ready', admin: null,
+                            notice: previous.notice === 'logoutUnknown' ? 'loggedOut'
+                                : previous.admin ? 'sessionExpired' : notice };
+                    });
+                } else {
+                    setSession(function cannotVerify(previous) {
+                        return { ...previous, status: 'error',
+                            notice: previous.notice === 'logoutUnknown' ? 'logoutUnknown' : 'sessionError' };
+                    });
+                }
+            } catch {
+                if (!ignore && version === sessionVersion.current) {
+                    setSession(function cannotConnect(previous) {
+                        return { ...previous, status: 'error', notice: previous.notice === 'logoutUnknown'
+                            ? 'logoutUnknown' : 'sessionConnectionError' };
+                    });
+                }
+            }
+        }
+
+        loadCurrentAdmin();
+        return function ignoreOldResponse() { ignore = true; };
+    }, [sessionCheck, page]);
+
+    useEffect(function watchSessionExpiry() {
+        if (!admin || busy) return;
+        function checkVisibleSession() {
+            if (document.visibilityState === 'visible') {
+                setSessionCheck(function increment(previous) { return previous + 1; });
+            }
+        }
+        const interval = setInterval(checkVisibleSession, 60000);
+        window.addEventListener('focus', checkVisibleSession);
+        document.addEventListener('visibilitychange', checkVisibleSession);
+        return function stopWatching() {
+            clearInterval(interval);
+            window.removeEventListener('focus', checkVisibleSession);
+            document.removeEventListener('visibilitychange', checkVisibleSession);
+        };
+    }, [admin, busy]);
+
+    function changeLanguage(nextLanguage) {
+        setLanguage(nextLanguage);
+        try {
+            localStorage.setItem('reg-course.language', nextLanguage);
+        } catch {
+            // Saving a preference is optional; no credentials are stored here.
+        }
+    }
+
+    function retrySession() {
+        setSession(function checking(previous) { return { ...previous, status: 'checking' }; });
+        setSessionCheck(function increment(previous) { return previous + 1; });
+    }
+
+    async function handleLogin(username, password) {
+        if (operationPending.current || Date.now() < retryAt) return;
+        operationPending.current = true;
+        sessionVersion.current += 1;
+        setBusy(true);
+        setFeedback('');
+        try {
+            const { response, data } = await requestJson('login', {
+                method: 'POST', headers: jsonHeaders, body: JSON.stringify({ username, password }),
+            });
+            if (response.ok && hasAdmin(data)) {
+                setSession({ status: 'ready', admin: data.admin, notice: '' });
+            } else {
+                setFeedback(errorKey(response.status));
+                if (response.status === 429) {
+                    const seconds = Number(response.headers.get('Retry-After'));
+                    setRetryAt(Date.now() + (Number.isFinite(seconds) && seconds > 0 ? seconds : 900) * 1000);
+                }
+            }
+        } catch {
+            setFeedback('connectionError');
+        } finally {
+            operationPending.current = false;
+            setBusy(false);
+        }
+    }
+
+    async function handleLogout() {
+        if (operationPending.current) return;
+        operationPending.current = true;
+        sessionVersion.current += 1;
+        setBusy(true);
+        setFeedback('');
+        try {
+            let failedStatus;
+            try {
+                const { response } = await requestJson('logout', {
+                    method: 'POST', headers: jsonHeaders, body: '{}',
+                });
+                if (response.ok || response.status === 401) {
+                    setSession({ status: 'ready', admin: null, notice: 'loggedOut' });
+                    return;
+                }
+                failedStatus = response.status;
+            } catch {
+                // A lost response does not tell us whether the server destroyed the session.
+            }
+            try {
+                const { response, data } = await requestJson('current');
+                if (response.status === 401) {
+                    setSession({ status: 'ready', admin: null,
+                        notice: failedStatus >= 500 ? 'logoutWarning' : 'loggedOut' });
+                } else if (response.ok && hasAdmin(data)) {
+                    setSession({ status: 'ready', admin: data.admin, notice: '' });
+                    setFeedback('logoutError');
+                } else {
+                    setSession(function uncertain(previous) {
+                        return { ...previous, status: 'error', notice: 'logoutUnknown' };
+                    });
+                }
+            } catch {
+                setSession(function uncertain(previous) {
+                    return { ...previous, status: 'error', notice: 'logoutUnknown' };
+                });
+            }
+        } finally {
+            operationPending.current = false;
+            setBusy(false);
+        }
+    }
+
+    return (
+        <SiteLayout text={text} language={language} onLanguageChange={changeLanguage}
+            page={page} admin={admin} title={title}>
+            {page === 'home' ? (
+                <section className="public-entry">
+                    <p>{text.homeNotice}</p>
+                    <a className="button" href="#staff">{admin ? text.staffArea : text.staffLogin}</a>
+                </section>
+            ) : session.status === 'checking' ? (
+                <section className="session-panel" aria-busy="true">
+                    <p role="status">{text.checkingSession}</p>
+                </section>
+            ) : session.status === 'error' ? (
+                <section className="session-panel">
+                    <p className="feedback error" role="alert">{text[session.notice]}</p>
+                    <button type="button" onClick={retrySession}>{text.tryAgain}</button>
+                </section>
+            ) : admin ? (
+                <StaffArea text={text} admin={admin} busy={busy} feedback={feedback} onLogout={handleLogout} />
+            ) : (
+                <LoginForm text={text} busy={busy} feedback={feedback}
+                    notice={session.notice} retryAt={retryAt} onLogin={handleLogin} />
+            )}
+        </SiteLayout>
+    );
+}
+
+export default App;
