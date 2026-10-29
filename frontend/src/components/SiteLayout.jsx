@@ -1,8 +1,8 @@
 function SiteLayout({ text, language, onLanguageChange, page, admin, title, children }) {
     const languages = [
-        { code: 'en', label: 'English' },
-        { code: 'zh-Hant', label: '繁體' },
-        { code: 'zh-Hans', label: '简体' },
+        { code: 'en', label: 'EN', name: 'English' },
+        { code: 'zh-Hant', label: '繁', name: '繁體中文' },
+        { code: 'zh-Hans', label: '简', name: '简体中文' },
     ];
 
     return (
@@ -14,26 +14,37 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, chil
             <header className="site-header">
                 <div className="header-content content-width">
                     <a className="site-name" href="#home">{text.siteName}</a>
-                    <div className="language-controls" role="group" aria-label={text.language}>
-                        {languages.map(function languageButton(item) {
-                            return (
-                                <button type="button" key={item.code} lang={item.code}
-                                    aria-pressed={language === item.code}
-                                    onClick={function chooseLanguage() { onLanguageChange(item.code); }}>
-                                    {item.label}
-                                </button>
-                            );
-                        })}
+                    <div className="header-actions">
+                        <div className="language-controls" role="group" aria-label={text.language}>
+                            {languages.map(function languageButton(item) {
+                                return (
+                                    <button type="button" key={item.code} lang={item.code}
+                                        aria-label={item.name} aria-pressed={language === item.code}
+                                        onClick={function chooseLanguage() { onLanguageChange(item.code); }}>
+                                        {item.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <a className="button staff-access" href="#staff"
+                            aria-current={page === 'staff' ? 'page' : undefined}>
+                            {admin ? text.staffArea : text.staffLogin}
+                        </a>
                     </div>
                 </div>
                 <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
                     <a href="#home" aria-current={page === 'home' ? 'page' : undefined}>{text.home}</a>
-                    <a href="#staff" aria-current={page === 'staff' ? 'page' : undefined}>
-                        {admin ? text.staffArea : text.staffLogin}
-                    </a>
                 </nav>
             </header>
             <main id="main-content" className="main-content content-width" tabIndex="-1">
+                {page === 'staff' && (
+                    <nav className="breadcrumb" aria-label={text.breadcrumb}>
+                        <ol>
+                            <li><a href="#home">{text.home}</a></li>
+                            <li aria-current="page">{title}</li>
+                        </ol>
+                    </nav>
+                )}
                 <h1 id="page-title">{title}</h1>
                 {children}
             </main>
