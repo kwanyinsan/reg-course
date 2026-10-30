@@ -14,14 +14,14 @@ export function formatCourseDate(value, language, includeTime = false) {
 }
 
 export function feeCents(value) {
-    const [whole, fraction] = value.split('.');
-    return Number(whole) * 100 + Number(fraction);
+    const [whole, fraction = ''] = String(value).split('.');
+    return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
 }
 
 export function formatMoney(cents, language) {
     return new Intl.NumberFormat(locales[language], {
         style: 'currency', currency: 'HKD', currencyDisplay: 'code',
-        minimumFractionDigits: 2, maximumFractionDigits: 2,
+        minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2,
     }).format(cents / 100);
 }
 

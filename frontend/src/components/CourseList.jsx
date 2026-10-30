@@ -54,7 +54,7 @@ function CourseList({ courses, text, language, filters, onFilter, selectedIds, b
                                         <div><dt>{text.courseDates}</dt><dd>{firstDate}{firstDate !== lastDate && ` – ${lastDate}`}</dd></div>
                                         <div><dt>{text.sessions}</dt><dd>{course.session_count}</dd></div>
                                         <div><dt>{text.courseMode}</dt><dd>{text[course.mode]}</dd></div>
-                                        <div><dt>{text.fee}</dt><dd>{formatMoney(feeCents(course.fee), language)}{course.fee === '0.00' && ` (${text.free})`}</dd></div>
+                                        <div><dt>{text.fee}</dt><dd>{formatMoney(feeCents(course.fee), language)}{course.fee === 0 && ` (${text.free})`}</dd></div>
                                     </dl>
                                     <p className={`course-availability ${course.availability}`}>{text[course.availability]}</p>
                                     <div className="course-actions">

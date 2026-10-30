@@ -1,8 +1,11 @@
 const express = require('express');
 const pool = require('./db');
 const { courseSummary, publicInformation } = require('./courses');
+const questionRoutes = require('./questions');
+const { questionLockReason } = require('./question-definition');
 
 const router = express.Router();
+router.use(questionRoutes);
 const pageSize = 25;
 
 function positiveInteger(value) {
@@ -103,7 +106,7 @@ router.get('/courses/:id', async function courseDetails(req, res, next) {
     try {
         const result = await pool.query(
             `SELECT c.id, c.code, c.title, c.short_description, c.long_description, c.information,
-                    c.sessions, c.mode, c.fee, c.state, c.attendance_requirement_percent,
+                    c.sessions, c.mode, c.fee, c.state, c.published_at, c.attendance_requirement_percent,
                     c.registration_opens_at, c.registration_closes_at, c.payment_deadline, ${countColumns}
              FROM course c WHERE c.id = $1`, [id]);
         const course = result.rows[0];
@@ -111,6 +114,7 @@ router.get('/courses/:id', async function courseDetails(req, res, next) {
         res.json({ course: { ...courseSummary(course, Date.now()), state: course.state,
             long_description: course.long_description, information: publicInformation(course.information),
             sessions: course.sessions, attendance_requirement_percent: course.attendance_requirement_percent,
+            published_at: course.published_at, questions_editable: questionLockReason(course) === null,
             total_registrations: course.total_registrations, registered_count: course.registered_count,
             cancelled_count: course.cancelled_count } });
     } catch (error) { next(error); }

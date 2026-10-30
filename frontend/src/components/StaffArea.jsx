@@ -3,10 +3,11 @@ import StaffCourseList from './StaffCourseList';
 import StaffCourseDetails from './StaffCourseDetails';
 import StaffRegistrationList from './StaffRegistrationList';
 import StaffRegistrationDetails from './StaffRegistrationDetails';
+import CourseQuestionEditor from './CourseQuestionEditor';
 
 const emptyRegistrationFilters = { q: '', state: '', payment_state: '', page: 1 };
 
-function StaffArea({ text, language, page, admin, busy, feedback, onLogout, onSessionExpired }) {
+function StaffArea({ text, language, page, admin, busy, feedback, onLogout, onSessionExpired, questionDraft, onQuestionDraftChange }) {
     const [courseFilters, setCourseFilters] = useState({ q: '', state: '', mode: '', page: 1 });
     const [registrationFilters, setRegistrationFilters] = useState(emptyRegistrationFilters);
     const [scopedFilters, setScopedFilters] = useState({ id: null, filters: emptyRegistrationFilters });
@@ -18,7 +19,8 @@ function StaffArea({ text, language, page, admin, busy, feedback, onLogout, onSe
             </div>
             {feedback && <p className="feedback error" role="alert">{text[feedback]}</p>}
             {busy && <p className="visually-hidden" role="status">{text.loggingOut}</p>}
-            {page.startsWith('staff/registrations/') ? <StaffRegistrationDetails id={id} text={text} language={language} onSessionExpired={onSessionExpired} />
+            {page.endsWith('/questions') ? <CourseQuestionEditor id={id} adminId={admin.id} text={text} language={language} draft={questionDraft} onDraftChange={onQuestionDraftChange} onSessionExpired={onSessionExpired} />
+                : page.startsWith('staff/registrations/') ? <StaffRegistrationDetails id={id} text={text} language={language} onSessionExpired={onSessionExpired} />
                 : page === 'staff/registrations' ? <StaffRegistrationList text={text} language={language} filters={registrationFilters} onFilter={setRegistrationFilters} onSessionExpired={onSessionExpired} />
                     : page.startsWith('staff/courses/') ? <StaffCourseDetails id={id} text={text} language={language}
                         filters={scopedFilters.id === id ? scopedFilters.filters : emptyRegistrationFilters}

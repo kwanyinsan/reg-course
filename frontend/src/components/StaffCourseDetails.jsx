@@ -31,6 +31,8 @@ function StaffCourseDetails({ id, text, language, filters, onFilter, onSessionEx
             <a href="#staff/courses">{text.backToStaffCourses}</a>
             <h2>{courseText(course.title, language)}</h2>
             <p className="course-code">{course.code} — {text[`state_${course.state}`]}</p>
+            <div className="course-actions"><a className="button secondary-button" href={`#staff/courses/${course.id}/questions`}>{course.questions_editable ? text.editQuestionBank : text.viewQuestionBank}</a>
+                <span>{course.questions_editable ? text.questionsEditable : text.questionsLocked}</span></div>
             <p>{courseText(course.short_description, language)}</p>
             <p>{text.state_registered}: {course.registered_count}; {text.state_cancelled}: {course.cancelled_count}; {text.records}: {course.total_registrations}</p>
             <CourseInformation course={course} text={text} language={language} />

@@ -182,7 +182,7 @@ CREATE TABLE course (
     information JSONB NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(information) = 'object'),
     mode TEXT NOT NULL CHECK (mode IN ('in_person', 'virtual', 'hybrid')),
     sessions JSONB NOT NULL,
-    fee NUMERIC(10,2) NOT NULL CHECK (fee >= 0 AND fee <> 'NaN'::NUMERIC),
+    fee INTEGER NOT NULL CONSTRAINT course_fee_multiple_of_ten CHECK (fee >= 0 AND MOD(fee, 10) = 0),
     registration_opens_at TIMESTAMPTZ,
     registration_closes_at TIMESTAMPTZ,
     payment_deadline TIMESTAMPTZ NOT NULL CHECK (isfinite(payment_deadline)),

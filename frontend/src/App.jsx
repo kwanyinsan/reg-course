@@ -7,6 +7,7 @@ import CourseDetails from './components/CourseDetails';
 import SelectedCourses from './components/SelectedCourses';
 import { courseText, feeCents, formatMoney, readSelectedIds } from './course-utils';
 import translations from './translations';
+import { questionDraftDirty } from './question-utils';
 
 function readLanguage() {
     try {
@@ -25,6 +26,7 @@ function readPage() {
     if (/^courses\/[1-9]\d*$/.test(page) && Number(page.split('/')[1]) <= 2147483647) return page;
     if (/^staff\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
         (!page.split('/')[2] || Number(page.split('/')[2]) <= 2147483647)) return page;
+    if (/^staff\/courses\/[1-9]\d*\/questions$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
     return 'notFound';
 }
 
@@ -61,6 +63,7 @@ function App() {
     const [sessionCheck, setSessionCheck] = useState(0);
     const [busy, setBusy] = useState(false);
     const [feedback, setFeedback] = useState('');
+    const [questionDraft, setQuestionDraft] = useState(null);
     const [retryAt, setRetryAt] = useState(0);
     const operationPending = useRef(false);
     const sessionVersion = useRef(0);
@@ -90,7 +93,7 @@ function App() {
     });
     const total = selectedCourses.reduce(function addFee(sum, course) { return sum + feeCents(course.fee); }, 0);
     let title = text.courses;
-    if (staffPage) title = !admin ? text.staffLogin : page.startsWith('staff/registrations/') ? text.registrationDetails
+    if (staffPage) title = !admin ? text.staffLogin : page.endsWith('/questions') ? text.registrationQuestions : page.startsWith('staff/registrations/') ? text.registrationDetails
         : page === 'staff/registrations' ? text.registrations : page.startsWith('staff/courses/') ? text.courseWorkspace : text.staffCourses;
     else if (page === 'selected') title = text.selectedCourses;
     else if (detailId) title = courseText(currentCourse?.title, language) || text.courseDetails;
@@ -120,6 +123,14 @@ function App() {
             // Selection remains usable for this visit when storage is unavailable.
         }
     }, [selection.ids]);
+
+    const dirtyQuestions = questionDraftDirty(questionDraft);
+    useEffect(function warnBeforeClosing() {
+        if (!dirtyQuestions) return;
+        function warn(event) { event.preventDefault(); event.returnValue = ''; }
+        window.addEventListener('beforeunload', warn);
+        return function stopWarning() { window.removeEventListener('beforeunload', warn); };
+    }, [dirtyQuestions]);
 
     useEffect(function loadPublicCourses() {
         if (page === 'staff' || page.startsWith('staff/') || page === 'notFound') return;
@@ -287,6 +298,7 @@ function App() {
                 method: 'POST', headers: jsonHeaders, body: JSON.stringify({ username, password }),
             });
             if (response.ok && hasAdmin(data)) {
+                setQuestionDraft(function keepOwnDraft(previous) { return previous?.adminId === data.admin.id ? previous : null; });
                 setSession({ status: 'ready', admin: data.admin, notice: '' });
             } else {
                 setFeedback(errorKey(response.status));
@@ -305,6 +317,7 @@ function App() {
 
     async function handleLogout() {
         if (operationPending.current) return;
+        if (dirtyQuestions && !window.confirm(text.confirmLogoutQuestions)) return;
         operationPending.current = true;
         sessionVersion.current += 1;
         setBusy(true);
@@ -316,6 +329,7 @@ function App() {
                     method: 'POST', headers: jsonHeaders, body: '{}',
                 });
                 if (response.ok || response.status === 401) {
+                    setQuestionDraft(null);
                     setSession({ status: 'ready', admin: null, notice: 'loggedOut' });
                     return;
                 }
@@ -326,6 +340,7 @@ function App() {
             try {
                 const { response, data } = await requestJson('current');
                 if (response.status === 401) {
+                    setQuestionDraft(null);
                     setSession({ status: 'ready', admin: null,
                         notice: failedStatus >= 500 ? 'logoutWarning' : 'loggedOut' });
                 } else if (response.ok && hasAdmin(data)) {
@@ -393,7 +408,8 @@ function App() {
                 </section>
             ) : admin ? (
                 <StaffArea key={admin.id} text={text} language={language} page={page} admin={admin} busy={busy}
-                    feedback={feedback} onLogout={handleLogout} onSessionExpired={expireStaffSession} />
+                    feedback={feedback} onLogout={handleLogout} onSessionExpired={expireStaffSession}
+                    questionDraft={questionDraft} onQuestionDraftChange={setQuestionDraft} />
             ) : (
                 <LoginForm text={text} busy={busy} feedback={feedback}
                     notice={session.notice} retryAt={retryAt} onLogin={handleLogin} />
