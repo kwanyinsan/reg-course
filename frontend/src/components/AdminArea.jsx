@@ -5,6 +5,7 @@ import AdminRegistrationList from './AdminRegistrationList';
 import AdminRegistrationDetails from './AdminRegistrationDetails';
 import CourseQuestionEditor from './CourseQuestionEditor';
 import CourseCertificateEditor from './CourseCertificateEditor';
+import AttendanceQr from './AttendanceQr';
 
 const emptyRegistrationFilters = { q: '', state: '', payment_state: '', page: 1 };
 
@@ -13,6 +14,7 @@ function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSe
     const [registrationFilters, setRegistrationFilters] = useState(emptyRegistrationFilters);
     const [scopedFilters, setScopedFilters] = useState({ id: null, filters: emptyRegistrationFilters });
     const id = Number(page.split('/')[2]);
+    if (page.endsWith('/qr')) return <AttendanceQr id={id} sessionId={page.split('/')[4]} text={text} language={language} onSessionExpired={onSessionExpired} />;
     return (
         <section className="admin-workspace" aria-busy={busy}>
             <div className="admin-account"><p>{text.signedInAs} <strong className="admin-name">{admin.username}</strong></p>
@@ -25,7 +27,7 @@ function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSe
                 : page === 'admin/registrations' ? <AdminRegistrationList text={text} language={language} filters={registrationFilters} onFilter={setRegistrationFilters} onSessionExpired={onSessionExpired} />
                     : page.startsWith('admin/courses/') ? <AdminCourseDetails id={id} text={text} language={language}
                         filters={scopedFilters.id === id ? scopedFilters.filters : emptyRegistrationFilters}
-                        onFilter={function changeScopedFilters(filters) { setScopedFilters({ id, filters }); }} onSessionExpired={onSessionExpired} />
+                        onFilter={function changeScopedFilters(filters) { setScopedFilters({ id, filters }); }} onSessionExpired={onSessionExpired} onNotice={onNotice} />
                         : <AdminCourseList text={text} language={language} filters={courseFilters} onFilter={setCourseFilters} onSessionExpired={onSessionExpired} />}
         </section>
     );

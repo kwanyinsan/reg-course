@@ -1,6 +1,6 @@
 import { courseText, feeCents, formatCourseDate, formatMoney } from '../course-utils';
 
-function CourseInformation({ course, text, language }) {
+function CourseInformation({ course, text, language, sessionActions }) {
     const information = course.information;
     const fields = ['venue', 'audience', 'prerequisites', 'teaching_language'];
     return (
@@ -44,6 +44,7 @@ function CourseInformation({ course, text, language }) {
                             <p>{text.courseMode}: {text[session.mode]}</p>
                             {description && <p className="course-description">{description}</p>}
                             {speaker && <p>{text.speaker}: {speaker}</p>}
+                            {sessionActions && sessionActions(session)}
                         </section>
                     );
                 })}

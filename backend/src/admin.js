@@ -10,6 +10,7 @@ const { questionLockReason } = require('./question-definition');
 const router = express.Router();
 router.use(questionRoutes);
 router.use(require('./certificates'));
+router.use(require('./admin-attendance'));
 const pageSize = 25;
 
 function positiveInteger(value) {

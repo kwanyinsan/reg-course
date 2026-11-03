@@ -9,6 +9,41 @@
     --border: #d8dde5;
 }
 
+.session-attendance { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.attendance-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-block: 16px; }
+.attendance-actions button { margin: 0; }
+.attendance-note { color: #555; font-size: 14px; max-width: 70ch; }
+.attendance-roster { margin-block: 20px; }
+.attendance-roster summary { cursor: pointer; color: var(--navy); font-weight: 700; padding-block: 12px; }
+.attendance-filters { display: flex; flex-wrap: wrap; gap: 16px; margin-block: 16px; }
+.attendance-filters label { display: grid; gap: 8px; flex: 1 1 220px; }
+.attendance-filters input, .attendance-filters select, .attendance-correction input, .attendance-correction textarea { width: 100%; padding: 10px; font: inherit; border: 1px solid #8993a5; background: #fff; }
+.attendance-participants { list-style: none; margin: 0; padding: 0; }
+.attendance-participants > li { padding: 20px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.attendance-participants h4 { margin: 0; }
+.attendance-correction { padding: 20px; margin-top: 16px; border-left: 4px solid var(--teal); background: #f5f6f8; }
+.attendance-correction label { display: grid; gap: 8px; margin-block: 16px; max-width: 560px; }
+.attendance-correction textarea { min-height: 90px; resize: vertical; }
+.attendance-scanner { max-width: 720px; margin-inline: auto; }
+.attendance-camera { display: block; width: 100%; max-height: 420px; background: #111; object-fit: cover; }
+.attendance-camera.camera-off { display: none; }
+.attendance-image-label { display: grid; gap: 8px; color: var(--navy); }
+.attendance-image-label input { max-width: 100%; font: inherit; }
+.attendance-success { padding: 20px; border-left: 4px solid var(--teal); background: #f0f6f5; }
+.attendance-success h2 { margin-top: 0; }
+.attendance-fullscreen { width: 100%; min-height: 100vh; padding: 24px; box-sizing: border-box; background: #fff; }
+.attendance-qr-display { text-align: center; max-width: 1000px; margin-inline: auto; }
+.attendance-qr-display > a { display: block; text-align: left; }
+.attendance-qr-display h1 { margin-block: 12px; }
+.attendance-qr-display h2 { font-size: clamp(20px, 3vw, 30px); }
+.attendance-qr-display img { display: block; width: min(70vh, 100%); height: auto; margin: 0 auto; }
+@media (max-width: 600px) {
+    .attendance-fullscreen { padding: 16px; }
+    .attendance-correction { padding: 16px; }
+    .attendance-actions > button { flex: 1 1 auto; }
+    .attendance-image-label { width: 100%; }
+}
+
 .certificate-state { color: var(--navy); font-weight: 700; }
 .certificate-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
 .certificate-editor-layout > * { min-width: 0; }

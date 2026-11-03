@@ -412,9 +412,6 @@ DECLARE
     answer_option JSONB;
     attendance_entry RECORD;
     session JSONB;
-    check_in TIMESTAMPTZ;
-    check_out TIMESTAMPTZ;
-    attended BOOLEAN;
 BEGIN
     IF EXISTS (SELECT 1 FROM payment WHERE submission_id = NEW.submission_id AND state = 'paid') THEN
         IF TG_OP = 'INSERT' THEN
@@ -479,25 +476,19 @@ BEGIN
             RAISE EXCEPTION 'Attendance references an unknown session.' USING ERRCODE = '23514';
         END IF;
         IF jsonb_typeof(attendance_entry.value) <> 'object'
-           OR NOT attendance_entry.value ?& ARRAY['check_in_at', 'check_out_at', 'attended']
-           OR (SELECT COUNT(*) FROM jsonb_object_keys(attendance_entry.value)) <> 3
-           OR jsonb_typeof(attendance_entry.value->'attended') <> 'boolean' THEN
-            RAISE EXCEPTION 'Attendance must contain check-in, check-out and attended fields.' USING ERRCODE = '23514';
+           OR NOT attendance_entry.value ?& ARRAY['recorded_at', 'attended']
+           OR (SELECT COUNT(*) FROM jsonb_object_keys(attendance_entry.value)) <> 2
+           OR attendance_entry.value->'attended' IS DISTINCT FROM 'true'::JSONB
+           OR jsonb_typeof(attendance_entry.value->'recorded_at') IS DISTINCT FROM 'string'
+           OR NOT valid_offset_time(attendance_entry.value->>'recorded_at') THEN
+            RAISE EXCEPTION 'Attendance must contain a valid recorded time and attended=true.' USING ERRCODE = '23514';
         END IF;
-        IF attendance_entry.value->'check_in_at' <> 'null'::JSONB AND NOT valid_offset_time(attendance_entry.value->>'check_in_at') THEN
-            RAISE EXCEPTION 'Attendance check-in requires an explicit time-zone offset.' USING ERRCODE = '23514';
+        IF (attendance_entry.value->>'recorded_at')::TIMESTAMPTZ > clock_timestamp() THEN
+            RAISE EXCEPTION 'Attendance cannot be recorded in the future.' USING ERRCODE = '23514';
         END IF;
-        IF attendance_entry.value->'check_out_at' <> 'null'::JSONB AND NOT valid_offset_time(attendance_entry.value->>'check_out_at') THEN
-            RAISE EXCEPTION 'Attendance check-out requires an explicit time-zone offset.' USING ERRCODE = '23514';
-        END IF;
-        check_in := (attendance_entry.value->>'check_in_at')::TIMESTAMPTZ;
-        check_out := (attendance_entry.value->>'check_out_at')::TIMESTAMPTZ;
-        IF check_out IS NOT NULL AND (check_in IS NULL OR check_out < check_in) THEN
-            RAISE EXCEPTION 'Attendance check-out must follow check-in.' USING ERRCODE = '23514';
-        END IF;
-        attended := COALESCE(check_in <= (session->>'starts_at')::TIMESTAMPTZ AND check_out >= (session->>'ends_at')::TIMESTAMPTZ, FALSE);
-        IF (attendance_entry.value->>'attended')::BOOLEAN IS DISTINCT FROM attended THEN
-            RAISE EXCEPTION 'Attendance result does not match the recorded times.' USING ERRCODE = '23514';
+        IF (attendance_entry.value->>'recorded_at')::TIMESTAMPTZ < (session->>'starts_at')::TIMESTAMPTZ - INTERVAL '15 minutes'
+           OR (attendance_entry.value->>'recorded_at')::TIMESTAMPTZ > (session->>'ends_at')::TIMESTAMPTZ THEN
+            RAISE EXCEPTION 'Attendance time must fall within the session period, including its arrival window.' USING ERRCODE = '23514';
         END IF;
     END LOOP;
     IF TG_OP = 'UPDATE' THEN

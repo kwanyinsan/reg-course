@@ -80,10 +80,10 @@ function AdminRegistrationDetails({ id, text, language, onSessionExpired }) {
             <section className="course-section"><h2>{text.attendance}</h2>
                 <p>{text.attendanceRequirement}: {course.attendance_requirement_percent}%</p>
                 <table className="admin-table attendance-table"><caption className="visually-hidden">{text.attendance}</caption>
-                    <thead><tr>{[text.session, text.attendanceStatus, text.checkIn, text.checkOut].map(function heading(label) { return <th scope="col" key={label}>{label}</th>; })}</tr></thead>
+                    <thead><tr>{[text.session, text.attendanceStatus, text.attTime].map(function heading(label) { return <th scope="col" key={label}>{label}</th>; })}</tr></thead>
                     <tbody>{course.sessions.map(function sessionRow(session) {
                         const entry = registration.attendance[session.id];
-                        return <tr key={session.id}><td data-label={text.session}>{courseText(session.topic, language)}</td><td data-label={text.attendanceStatus}>{!entry ? text.notRecorded : entry.attended ? text.attended : text.attendanceNotMet}</td><td data-label={text.checkIn}>{date(entry?.check_in_at)}</td><td data-label={text.checkOut}>{date(entry?.check_out_at)}</td></tr>;
+                        return <tr key={session.id}><td data-label={text.session}>{courseText(session.topic, language)}</td><td data-label={text.attendanceStatus}>{entry ? text.attPresent : text.attMissing}</td><td data-label={text.attTime}>{date(entry?.recorded_at)}</td></tr>;
                     })}</tbody>
                 </table>
             </section>

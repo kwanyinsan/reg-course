@@ -1,5 +1,6 @@
 function SiteLayout({ text, language, onLanguageChange, page, admin, title, selectedCount, children }) {
     const adminPage = page === 'admin' || page.startsWith('admin/');
+    if (admin && page.endsWith('/qr')) return <main id="main-content" className="attendance-fullscreen" tabIndex="-1">{children}</main>;
     let backLink = null;
     if (page.startsWith('courses/')) backLink = { href: '#courses', label: text.backToCourses, parent: text.courses };
     if (adminPage && admin) {

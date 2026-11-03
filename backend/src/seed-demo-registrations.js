@@ -45,7 +45,7 @@ async function insertRegistrations(client) {
         for (const course of result.rows) {
             const answers = application.answer ? { demo_learning_goal: application.answer } : {};
             const attendance = application.attended ? { session_1: {
-                check_in_at: '2026-10-20T09:55:00+08:00', check_out_at: '2026-10-20T12:05:00+08:00', attended: true,
+                recorded_at: '2026-10-20T09:55:00+08:00', attended: true,
             } } : {};
             await client.query(
                 `INSERT INTO registration (submission_id, course_id, fee, answers, attendance, state,

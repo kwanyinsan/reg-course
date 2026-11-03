@@ -7,6 +7,9 @@ import CourseDetails from './components/CourseDetails';
 import SelectedCourses from './components/SelectedCourses';
 import Registration from './components/Registration';
 import Payment from './components/Payment';
+import AttendanceScanner from './components/AttendanceScanner';
+import attendanceText from './attendance-text';
+import { captureAttendanceLink } from './attendance-api';
 import Notification from './components/Notification';
 import useNotification from './use-notification';
 import applicationText from './application-text';
@@ -29,6 +32,7 @@ function readLanguage() {
 }
 
 function readPage() {
+    if (/^#attendance(?:\/|$)/.test(window.location.hash)) return `attendance/${captureAttendanceLink()}`;
     if (/^#payment(?:\/|$)/.test(window.location.hash)) return `payment/${capturePaymentLink()}`;
     const page = window.location.hash.slice(1).replace(/^staff(?=\/|$)/, 'admin');
     if (!page || page === 'home') return 'courses';
@@ -37,6 +41,7 @@ function readPage() {
     if (/^admin\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
         (!page.split('/')[2] || Number(page.split('/')[2]) <= 2147483647)) return page;
     if (/^admin\/courses\/[1-9]\d*\/(questions|certificate)$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
+    if (/^admin\/courses\/[1-9]\d*\/attendance\/[a-z][a-z0-9_]{0,99}\/qr$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
     return 'notFound';
 }
 
@@ -89,9 +94,10 @@ function App() {
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language] };
+    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language], ...attendanceText.en, ...attendanceText[language] };
     const applicationPage = page === 'registration' || page.startsWith('registration/');
     const paymentPage = page.startsWith('payment/');
+    const attendancePage = page.startsWith('attendance/');
     const applicationCompleted = useCallback(function clearSubmittedSelection() {
         setSelection({ ids: [], notice: '' });
     }, []);
@@ -141,9 +147,11 @@ function App() {
         : page === 'admin/registrations' ? text.registrations : page.startsWith('admin/courses/') ? text.courseWorkspace : text.adminCourses;
     else if (applicationPage) title = applicationDraft?.receipt || page.endsWith('/acknowledgement') ? text.acknowledgement : page.endsWith('/review') ? text.reviewApplication : text.applicationTitle;
     else if (paymentPage) title = text.paymentTitle;
+    else if (attendancePage) title = text.attTitle;
     else if (page === 'selected') title = text.selectedCourses;
     else if (detailId) title = courseText(currentCourse?.title, language) || text.courseDetails;
     else if (page === 'notFound') title = text.pageNotFound;
+    if (adminPage && page.endsWith('/qr')) title = text.attShowQr;
 
     useEffect(function updateDocument() {
         document.documentElement.lang = language;
@@ -200,7 +208,7 @@ function App() {
     }, [dirtyQuestions, dirtyCertificate, applicationDraft]);
 
     useEffect(function loadPublicCourses() {
-        if (page === 'admin' || page.startsWith('admin/') || page.startsWith('registration') || page.startsWith('payment/') || page === 'notFound') return;
+        if (page === 'admin' || page.startsWith('admin/') || page.startsWith('registration') || page.startsWith('payment/') || page.startsWith('attendance/') || page === 'notFound') return;
         let ignore = false;
         const version = ++catalogVersion.current;
         async function loadCourses() {
@@ -440,7 +448,9 @@ function App() {
             <Notification notice={notification} text={text} />
             {!adminPage ? (
                 <>
-                    {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : paymentPage ? (
+                    {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : attendancePage ? (
+                        <AttendanceScanner key={page} accessKey={page.split('/')[1]} text={text} language={language} onNotice={notify} />
+                    ) : paymentPage ? (
                         <Payment key={page} accessKey={page.split('/')[1]} text={text} language={language} onNotice={notify} />
                     ) : applicationPage ? (
                         <Registration page={page} text={text} language={language} initialSelectedIds={selection.ids}
