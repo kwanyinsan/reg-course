@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { courseText, feeCents, formatCourseDate, formatMoney } from '../course-utils';
+import IssuedCertificate from './IssuedCertificate';
 
 function answerText(question, value, language, text) {
     if (value == null || value === '' || (Array.isArray(value) && !value.length)) return text.notProvided;
@@ -88,7 +89,7 @@ function AdminRegistrationDetails({ id, text, language, onSessionExpired }) {
                 </table>
             </section>
             <section className="course-section"><h2>{text.certificate}</h2>
-                {!registration.certificate_number ? <p>{text.notIssued}</p> : <dl className="admin-fields">{field(text.certificateNumber, registration.certificate_number)}{field(text.issuedAt, date(registration.certificate_issued_at))}</dl>}
+                {!registration.certificate_number ? <p>{text.notIssued}</p> : <IssuedCertificate id={id} text={text} language={language} onSessionExpired={onSessionExpired} />}
             </section>
         </article>
     );

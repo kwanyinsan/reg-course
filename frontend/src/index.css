@@ -45,6 +45,12 @@
 }
 
 .certificate-state { color: var(--navy); font-weight: 700; }
+.certificate-send h3 { color: var(--navy); margin-top: 0; }
+.certificate-send-note { color: #555; font-size: 14px; max-width: 75ch; }
+.certificate-send summary { color: var(--navy); cursor: pointer; padding-block: 10px; }
+.certificate-send-results { list-style: none; margin: 0; padding: 0; }
+.certificate-send-results > li { border-top: 1px solid var(--border); padding-block: 14px; overflow-wrap: anywhere; }
+.certificate-send-results > li > ul { padding-left: 20px; }
 .certificate-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
 .certificate-editor-layout > * { min-width: 0; }
 .certificate-field { margin-bottom: 20px; }

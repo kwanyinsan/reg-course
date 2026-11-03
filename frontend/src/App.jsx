@@ -15,6 +15,7 @@ import useNotification from './use-notification';
 import applicationText from './application-text';
 import paymentText from './payment-text';
 import certificateText from './certificate-text';
+import certificateSendText from './certificate-send-text';
 import { certificateDraftDirty } from './certificate-utils';
 import { capturePaymentLink } from './payment-link';
 import { courseText, feeCents, formatMoney, readSelectedIds } from './course-utils';
@@ -94,7 +95,7 @@ function App() {
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language], ...attendanceText.en, ...attendanceText[language] };
+    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language], ...attendanceText.en, ...attendanceText[language], ...certificateSendText.en, ...certificateSendText[language] };
     const applicationPage = page === 'registration' || page.startsWith('registration/');
     const paymentPage = page.startsWith('payment/');
     const attendancePage = page.startsWith('attendance/');

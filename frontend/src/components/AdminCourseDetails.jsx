@@ -3,6 +3,7 @@ import { courseText } from '../course-utils';
 import CourseInformation from './CourseInformation';
 import AdminRegistrationList from './AdminRegistrationList';
 import SessionAttendance from './SessionAttendance';
+import CourseCertificateSend from './CourseCertificateSend';
 
 function AdminCourseDetails({ id, text, language, filters, onFilter, onSessionExpired, onNotice }) {
     const [result, setResult] = useState({ id: null, status: 'loading' });
@@ -37,6 +38,7 @@ function AdminCourseDetails({ id, text, language, filters, onFilter, onSessionEx
                 <span>{course.certificate_editable ? text.certificateEditable : text.certificateLocked}</span></div>
             <p>{courseText(course.short_description, language)}</p>
             <p>{text.state_registered}: {course.registered_count}; {text.state_cancelled}: {course.cancelled_count}; {text.records}: {course.total_registrations}</p>
+            <CourseCertificateSend courseId={course.id} text={text} onSessionExpired={onSessionExpired} onNotice={onNotice} />
             <CourseInformation course={course} text={text} language={language} sessionActions={session => <SessionAttendance courseId={course.id} sessionId={session.id} text={text} language={language} onSessionExpired={onSessionExpired} onNotice={onNotice} />} />
             <AdminRegistrationList key={id} courseId={id} text={text} language={language} filters={filters} onFilter={onFilter} onSessionExpired={onSessionExpired} />
         </section>
