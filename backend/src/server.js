@@ -34,6 +34,7 @@ app.use('/login', limitLoginAttempts);
 app.use('/application', express.json({ limit: '256kb', strict: false }), applicationRoutes);
 app.use('/payment', express.json({ limit: '1kb', strict: false }), paymentRoutes);
 app.put('/admin/courses/:id/questions', express.json({ limit: '256kb', strict: false }));
+app.use('/admin/courses/:id/certificate', express.json({ limit: '96kb', strict: false }));
 app.use(express.json({ limit: '16kb', strict: false }));
 app.use(sessionMiddleware);
 app.use('/admin', requireAdmin, adminRoutes);

@@ -11,6 +11,8 @@ import Notification from './components/Notification';
 import useNotification from './use-notification';
 import applicationText from './application-text';
 import paymentText from './payment-text';
+import certificateText from './certificate-text';
+import { certificateDraftDirty } from './certificate-utils';
 import { capturePaymentLink } from './payment-link';
 import { courseText, feeCents, formatMoney, readSelectedIds } from './course-utils';
 import translations from './translations';
@@ -34,7 +36,7 @@ function readPage() {
     if (/^courses\/[1-9]\d*$/.test(page) && Number(page.split('/')[1]) <= 2147483647) return page;
     if (/^admin\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
         (!page.split('/')[2] || Number(page.split('/')[2]) <= 2147483647)) return page;
-    if (/^admin\/courses\/[1-9]\d*\/questions$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
+    if (/^admin\/courses\/[1-9]\d*\/(questions|certificate)$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
     return 'notFound';
 }
 
@@ -72,6 +74,7 @@ function App() {
     const [busy, setBusy] = useState(false);
     const [notification, notify] = useNotification();
     const [questionDraft, setQuestionDraft] = useState(null);
+    const [certificateDraft, setCertificateDraft] = useState(null);
     const [applicationDraft, setApplicationDraft] = useState(null);
     const [retryAt, setRetryAt] = useState(0);
     const operationPending = useRef(false);
@@ -86,7 +89,7 @@ function App() {
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language] };
+    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language] };
     const applicationPage = page === 'registration' || page.startsWith('registration/');
     const paymentPage = page.startsWith('payment/');
     const applicationCompleted = useCallback(function clearSubmittedSelection() {
@@ -134,7 +137,7 @@ function App() {
     });
     const total = selectedCourses.reduce(function addFee(sum, course) { return sum + feeCents(course.fee); }, 0);
     let title = text.courses;
-    if (adminPage) title = !admin ? text.adminLogin : page.endsWith('/questions') ? text.registrationQuestions : page.startsWith('admin/registrations/') ? text.registrationDetails
+    if (adminPage) title = !admin ? text.adminLogin : page.endsWith('/questions') ? text.registrationQuestions : page.endsWith('/certificate') ? text.certificateTitle : page.startsWith('admin/registrations/') ? text.registrationDetails
         : page === 'admin/registrations' ? text.registrations : page.startsWith('admin/courses/') ? text.courseWorkspace : text.adminCourses;
     else if (applicationPage) title = applicationDraft?.receipt || page.endsWith('/acknowledgement') ? text.acknowledgement : page.endsWith('/review') ? text.reviewApplication : text.applicationTitle;
     else if (paymentPage) title = text.paymentTitle;
@@ -188,12 +191,13 @@ function App() {
     }, [session.status, session.notice, notify]);
 
     const dirtyQuestions = questionDraftDirty(questionDraft);
+    const dirtyCertificate = certificateDraftDirty(certificateDraft);
     useEffect(function warnBeforeClosing() {
-        if (!dirtyQuestions && (!applicationDraft?.personal || applicationDraft?.receipt)) return;
+        if (!dirtyQuestions && !dirtyCertificate && (!applicationDraft?.personal || applicationDraft?.receipt)) return;
         function warn(event) { event.preventDefault(); event.returnValue = ''; }
         window.addEventListener('beforeunload', warn);
         return function stopWarning() { window.removeEventListener('beforeunload', warn); };
-    }, [dirtyQuestions, applicationDraft]);
+    }, [dirtyQuestions, dirtyCertificate, applicationDraft]);
 
     useEffect(function loadPublicCourses() {
         if (page === 'admin' || page.startsWith('admin/') || page.startsWith('registration') || page.startsWith('payment/') || page === 'notFound') return;
@@ -364,6 +368,7 @@ function App() {
             });
             if (response.ok && hasAdmin(data)) {
                 setQuestionDraft(function keepOwnDraft(previous) { return previous?.adminId === data.admin.id ? previous : null; });
+                setCertificateDraft(function keepOwnDraft(previous) { return previous?.adminId === data.admin.id ? previous : null; });
                 setSession({ status: 'ready', admin: data.admin, notice: '' });
                 notify('loggedIn');
             } else {
@@ -383,7 +388,7 @@ function App() {
 
     async function handleLogout() {
         if (operationPending.current) return;
-        if (dirtyQuestions && !window.confirm(text.confirmLogoutQuestions)) return;
+        if ((dirtyQuestions || dirtyCertificate) && !window.confirm(dirtyCertificate ? text.certificateLogoutConfirm : text.confirmLogoutQuestions)) return;
         operationPending.current = true;
         sessionVersion.current += 1;
         setBusy(true);
@@ -395,6 +400,7 @@ function App() {
                 });
                 if (response.ok || response.status === 401) {
                     setQuestionDraft(null);
+                    setCertificateDraft(null);
                     setSession({ status: 'ready', admin: null, notice: 'loggedOut' });
                     return;
                 }
@@ -406,6 +412,7 @@ function App() {
                 const { response, data } = await requestJson('current');
                 if (response.status === 401) {
                     setQuestionDraft(null);
+                    setCertificateDraft(null);
                     setSession({ status: 'ready', admin: null,
                         notice: failedStatus >= 500 ? 'logoutWarning' : 'loggedOut' });
                 } else if (response.ok && hasAdmin(data)) {
@@ -481,7 +488,8 @@ function App() {
             ) : admin ? (
                 <AdminArea key={admin.id} text={text} language={language} page={page} admin={admin} busy={busy}
                     onNotice={notify} onLogout={handleLogout} onSessionExpired={expireAdminSession}
-                    questionDraft={questionDraft} onQuestionDraftChange={setQuestionDraft} />
+                    questionDraft={questionDraft} onQuestionDraftChange={setQuestionDraft}
+                    certificateDraft={certificateDraft} onCertificateDraftChange={setCertificateDraft} />
             ) : (
                 <LoginForm text={text} busy={busy} retryAt={retryAt} onLogin={handleLogin} />
             )}

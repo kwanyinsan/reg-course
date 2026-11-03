@@ -4,10 +4,11 @@ import AdminCourseDetails from './AdminCourseDetails';
 import AdminRegistrationList from './AdminRegistrationList';
 import AdminRegistrationDetails from './AdminRegistrationDetails';
 import CourseQuestionEditor from './CourseQuestionEditor';
+import CourseCertificateEditor from './CourseCertificateEditor';
 
 const emptyRegistrationFilters = { q: '', state: '', payment_state: '', page: 1 };
 
-function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSessionExpired, questionDraft, onQuestionDraftChange }) {
+function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSessionExpired, questionDraft, onQuestionDraftChange, certificateDraft, onCertificateDraftChange }) {
     const [courseFilters, setCourseFilters] = useState({ q: '', state: '', mode: '', page: 1 });
     const [registrationFilters, setRegistrationFilters] = useState(emptyRegistrationFilters);
     const [scopedFilters, setScopedFilters] = useState({ id: null, filters: emptyRegistrationFilters });
@@ -19,6 +20,7 @@ function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSe
             </div>
             {busy && <p className="visually-hidden" role="status">{text.loggingOut}</p>}
             {page.endsWith('/questions') ? <CourseQuestionEditor id={id} adminId={admin.id} text={text} language={language} draft={questionDraft} onDraftChange={onQuestionDraftChange} onSessionExpired={onSessionExpired} onNotice={onNotice} />
+                : page.endsWith('/certificate') ? <CourseCertificateEditor key={id} id={id} adminId={admin.id} text={text} language={language} draft={certificateDraft} onDraftChange={onCertificateDraftChange} onSessionExpired={onSessionExpired} onNotice={onNotice} />
                 : page.startsWith('admin/registrations/') ? <AdminRegistrationDetails id={id} text={text} language={language} onSessionExpired={onSessionExpired} />
                 : page === 'admin/registrations' ? <AdminRegistrationList text={text} language={language} filters={registrationFilters} onFilter={setRegistrationFilters} onSessionExpired={onSessionExpired} />
                     : page.startsWith('admin/courses/') ? <AdminCourseDetails id={id} text={text} language={language}

@@ -2,12 +2,14 @@ const express = require('express');
 const pool = require('./db');
 const acknowledgement = require('./acknowledgement');
 const payments = require('./payment');
+const { lockReason: certificateLockReason } = require('./certificate-template');
 const { courseSummary, publicInformation } = require('./courses');
 const questionRoutes = require('./questions');
 const { questionLockReason } = require('./question-definition');
 
 const router = express.Router();
 router.use(questionRoutes);
+router.use(require('./certificates'));
 const pageSize = 25;
 
 function positiveInteger(value) {
@@ -120,6 +122,7 @@ router.get('/courses/:id', async function courseDetails(req, res, next) {
             long_description: course.long_description, information: publicInformation(course.information),
             sessions: course.sessions, attendance_requirement_percent: course.attendance_requirement_percent,
             published_at: course.published_at, questions_editable: questionLockReason(course) === null,
+            certificate_editable: certificateLockReason(course) === null,
             total_registrations: course.total_registrations, paid_count: course.paid_count, registered_count: course.registered_count,
             cancelled_count: course.cancelled_count } });
     } catch (error) { next(error); }

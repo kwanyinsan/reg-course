@@ -9,6 +9,30 @@
     --border: #d8dde5;
 }
 
+.certificate-state { color: var(--navy); font-weight: 700; }
+.certificate-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.certificate-editor-layout > * { min-width: 0; }
+.certificate-field { margin-bottom: 20px; }
+.certificate-field label { display: block; margin-bottom: 6px; color: var(--navy); font-weight: 700; }
+.certificate-field textarea { width: 100%; padding: 12px; border: 1px solid #8993a5; font: inherit; resize: vertical; border-radius: 0; }
+.certificate-field textarea:read-only { background: #f5f6f8; }
+.certificate-counter { display: block; color: #555; font-size: 14px; text-align: end; }
+.certificate-placeholders { margin: 24px 0; padding: 16px; border: 1px solid var(--border); }
+.certificate-placeholders button { display: inline-block; vertical-align: top; margin: 8px 8px 0 0; max-width: 100%; text-align: start; overflow-wrap: anywhere; }
+.certificate-placeholders code { display: block; font-size: 13px; }
+.certificate-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-block: 20px; }
+.certificate-preview { padding: 24px; border-top: 4px solid var(--navy); background: #f5f6f8; }
+.certificate-preview h2 { margin-top: 0; }
+.certificate-pdf { width: 100%; min-height: 180px; border: 1px solid var(--border); background: #fff; }
+.certificate-pdf canvas { display: block; width: 100%; height: auto; }
+.certificate-pdf canvas[hidden] { display: none; }
+@media (max-width: 1000px) { .certificate-editor-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) {
+    .certificate-preview { padding: 16px; }
+    .certificate-actions { flex-direction: column; }
+    .certificate-actions > *, .certificate-placeholders button { width: 100%; }
+}
+
 .button-link { display: inline-block; padding: 10px 20px; background: var(--teal); color: #fff; text-decoration: none; font-weight: 700; }
 .button-link:hover { background: var(--navy); color: #fff; }
 .payment-references { display: flex; flex-wrap: wrap; gap: 12px 36px; margin-block: 24px; }

@@ -32,6 +32,8 @@ function AdminCourseDetails({ id, text, language, filters, onFilter, onSessionEx
             <p className="course-code">{course.code} — {text[`state_${course.state}`]}</p>
             <div className="course-actions"><a className="button secondary-button" href={`#admin/courses/${course.id}/questions`}>{course.questions_editable ? text.editQuestionBank : text.viewQuestionBank}</a>
                 <span>{course.questions_editable ? text.questionsEditable : text.questionsLocked}</span></div>
+            <div className="course-actions"><a className="button secondary-button" href={`#admin/courses/${course.id}/certificate`}>{course.certificate_editable ? text.editCertificate : text.viewCertificate}</a>
+                <span>{course.certificate_editable ? text.certificateEditable : text.certificateLocked}</span></div>
             <p>{courseText(course.short_description, language)}</p>
             <p>{text.state_registered}: {course.registered_count}; {text.state_cancelled}: {course.cancelled_count}; {text.records}: {course.total_registrations}</p>
             <CourseInformation course={course} text={text} language={language} />

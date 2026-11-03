@@ -3,7 +3,7 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
     let backLink = null;
     if (page.startsWith('courses/')) backLink = { href: '#courses', label: text.backToCourses, parent: text.courses };
     if (adminPage && admin) {
-        if (page.endsWith('/questions')) backLink = { href: `#admin/courses/${page.split('/')[2]}`, label: text.backToCourse, parent: text.courseDetails };
+        if (page.endsWith('/questions') || page.endsWith('/certificate')) backLink = { href: `#admin/courses/${page.split('/')[2]}`, label: text.backToCourse, parent: text.courseDetails };
         else if (page.startsWith('admin/courses/')) backLink = { href: '#admin/courses', label: text.backToCourses, parent: text.courses };
         else if (page.startsWith('admin/registrations/')) backLink = { href: '#admin/registrations', label: text.backToRegistrations, parent: text.registrations };
     }
