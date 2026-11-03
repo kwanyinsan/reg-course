@@ -16,19 +16,18 @@ function SaveActions({ text, busy, disabled, onSave, onDiscard }) {
     </div>;
 }
 
-function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChange, onSessionExpired }) {
+function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChange, onSessionExpired, onNotice }) {
     const [result, setResult] = useState({ id: null, status: 'loading' });
     const [refresh, setRefresh] = useState(0);
     const [busy, setBusy] = useState(false);
     const [issue, setIssue] = useState(null);
-    const [message, setMessage] = useState('');
     const savePending = useRef(false);
     const replaceOnLoad = useRef(false);
     useEffect(function loadBank() {
         let ignore = false;
         async function load() {
             try {
-                const response = await fetch(`/api/staff/courses/${id}/questions`, { signal: AbortSignal.timeout(10000) });
+                const response = await fetch(`/api/admin/courses/${id}/questions`, { signal: AbortSignal.timeout(10000) });
                 const data = await response.json();
                 if (ignore) return;
                 if (response.status === 401) return onSessionExpired();
@@ -52,7 +51,6 @@ function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChang
     const dirty = questionDraftDirty(current);
     function editDefinition(definition) {
         setIssue(null);
-        setMessage('');
         onDraftChange(function edit(previous) { return { ...previous, definition }; });
     }
     function showIssue(error) {
@@ -70,7 +68,6 @@ function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChang
     }
     async function save() {
         if (savePending.current || !current || !result.data.editable) return;
-        setMessage('');
         const definition = cleanDefinition(current.definition);
         const error = validateQuestionDraft(definition);
         if (error) return showIssue(error);
@@ -78,7 +75,7 @@ function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChang
         setBusy(true);
         setIssue(null);
         try {
-            const response = await fetch(`/api/staff/courses/${id}/questions`, {
+            const response = await fetch(`/api/admin/courses/${id}/questions`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'reg-course' },
                 body: JSON.stringify({ definition, original_definition: current.originalDefinition }), signal: AbortSignal.timeout(10000),
             });
@@ -96,7 +93,7 @@ function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChang
                 return { ...loadedDraft(data, id, adminId), editingLanguage: previous.editingLanguage };
             });
             setResult({ id, status: 'ready', data });
-            setMessage('questionsSaved');
+            onNotice('questionsSaved');
         } catch {
             setIssue({ code: 'save_unconfirmed' });
         } finally {
@@ -108,7 +105,6 @@ function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChang
         if (busy || (dirty && !window.confirm(text.confirmDiscardQuestions))) return;
         replaceOnLoad.current = true;
         setIssue(null);
-        setMessage('');
         setResult({ id, status: 'loading' });
         setRefresh(function increment(previous) { return previous + 1; });
     }
@@ -119,20 +115,18 @@ function CourseQuestionEditor({ id, adminId, text, language, draft, onDraftChang
         section?.scrollIntoView({ block: 'start' });
     }
     if (result.id !== id || result.status === 'loading') return <p role="status">{text.loadingQuestions}</p>;
-    if (result.status === 'error') return <section><p role="alert">{text[result.message]}</p><button type="button" onClick={reload}>{text.tryAgain}</button><p><a href={`#staff/courses/${id}`}>{text.backToCourse}</a></p></section>;
+    if (result.status === 'error') return <section><p role="alert">{text[result.message]}</p><button type="button" onClick={reload}>{text.tryAgain}</button></section>;
     const { course, editable, lock_reason: reason } = result.data;
     if (!current) return <section><p role="alert">{text.otherUnsavedQuestions}</p>
-        <a href={`#staff/courses/${draft?.courseId}/questions`}>{text.returnToUnsavedQuestions}</a>
+        <a href={`#admin/courses/${draft?.courseId}/questions`}>{text.returnToUnsavedQuestions}</a>
         <button type="button" onClick={function replace() { if (window.confirm(text.confirmDiscardQuestions)) onDraftChange(loadedDraft(result.data, id, adminId)); }}>{text.openThisQuestionBank}</button>
     </section>;
     return (
         <section className="course-question-workspace">
-            <a href={`#staff/courses/${id}`}>{text.backToCourse}</a>
             <h2>{courseText(course.title, language)}</h2><p className="course-code">{course.code}</p>
             <p className="question-bank-state">{editable ? text.questionsEditable : text.questionsLocked} — {dirty ? text.unsavedChanges : result.data.question ? text.savedQuestionBank : text.noSavedQuestionBank}</p>
             {!editable && <p className="feedback">{text[`questionLock_${reason}`] || text.questionsLocked}{dirty && ` ${text.unsavedQuestionsRetained}`}</p>}
             {issue && <p id="question-save-error" className="feedback error" role="alert" tabIndex="-1">{text[`questionError_${issue.code}`] || text.questionError_save_failed}</p>}
-            {message && <p className="feedback" role="status">{text[message]}</p>}
             {busy && <p role="status">{text.savingQuestions}</p>}
             {editable && <SaveActions text={text} busy={busy} disabled={!dirty && Boolean(result.data.question)} onSave={save} onDiscard={reload} />}
             {!editable && dirty && <button type="button" className="secondary-button" onClick={reload}>{text.discardQuestions}</button>}

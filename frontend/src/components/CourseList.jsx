@@ -1,6 +1,7 @@
-import { courseText, feeCents, formatCourseDate, formatMoney } from '../course-utils';
+import { courseText } from '../course-utils';
+import CourseFacts from './CourseFacts';
 
-function CourseList({ courses, text, language, filters, onFilter, selectedIds, busy, onToggle }) {
+function CourseList({ courses, text, language, filters, onFilter, selectedIds, busy, onToggle, onRefresh }) {
     const search = filters.search.trim().toLocaleLowerCase();
     const matches = courses.filter(function matchesFilters(course) {
         const searchable = [course.code, ...Object.values(course.title), ...Object.values(course.short_description)].join(' ').toLocaleLowerCase();
@@ -32,10 +33,11 @@ function CourseList({ courses, text, language, filters, onFilter, selectedIds, b
                         return <option key={value} value={value}>{text[value]}</option>;
                     })}
                 </select>
-                <button type="button" className="secondary-button"
+                <div className="course-filter-actions"><button type="button" className="secondary-button"
                     onClick={function clearFilters() { onFilter({ search: '', mode: '', availability: '' }); }}>
                     {text.clearFilters}
                 </button>
+                <button type="button" className="secondary-button" onClick={onRefresh}>{text.refreshCourses}</button></div>
             </section>
             <section className="course-results" aria-label={text.courses}>
                 <p role="status">{text.results}: {matches.length}</p>
@@ -43,19 +45,12 @@ function CourseList({ courses, text, language, filters, onFilter, selectedIds, b
                     <div className="course-grid">
                         {matches.map(function courseCard(course) {
                             const selected = selectedIds.includes(course.id);
-                            const firstDate = formatCourseDate(course.starts_at, language);
-                            const lastDate = formatCourseDate(course.ends_at, language);
                             return (
                                 <article key={course.id} className="course-card">
                                     <h2><a href={`#courses/${course.id}`}>{courseText(course.title, language)}</a></h2>
                                     <p className="course-code">{course.code}</p>
                                     <p>{courseText(course.short_description, language)}</p>
-                                    <dl className="course-facts">
-                                        <div><dt>{text.courseDates}</dt><dd>{firstDate}{firstDate !== lastDate && ` – ${lastDate}`}</dd></div>
-                                        <div><dt>{text.sessions}</dt><dd>{course.session_count}</dd></div>
-                                        <div><dt>{text.courseMode}</dt><dd>{text[course.mode]}</dd></div>
-                                        <div><dt>{text.fee}</dt><dd>{formatMoney(feeCents(course.fee), language)}{course.fee === 0 && ` (${text.free})`}</dd></div>
-                                    </dl>
+                                    <CourseFacts course={course} text={text} language={language} />
                                     <p className={`course-availability ${course.availability}`}>{text[course.availability]}</p>
                                     <div className="course-actions">
                                         <a className="button secondary-button" href={`#courses/${course.id}`}>{text.details}</a>

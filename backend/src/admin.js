@@ -13,11 +13,12 @@ function positiveInteger(value) {
 }
 
 function readFilters(req, res, kind) {
-    const allowed = kind === 'courses' ? ['q', 'state', 'mode', 'page'] : ['q', 'state', 'payment_state', 'course_id', 'page'];
+    const allowed = kind === 'courses' ? ['q', 'state', 'mode', 'page'] : ['q', 'state', 'payment_state', 'course_id', 'group_by', 'page'];
     const query = req.query;
     if (Object.keys(query).some(function invalidKey(key) { return !allowed.includes(key) || typeof query[key] !== 'string'; }) ||
         (query.q && query.q.length > 100) || (query.page && !positiveInteger(query.page)) ||
         (query.course_id && !positiveInteger(query.course_id)) ||
+        (query.group_by && !['submission', 'registration'].includes(query.group_by)) ||
         (query.mode && !['in_person', 'virtual', 'hybrid'].includes(query.mode)) ||
         (query.state && !(kind === 'courses' ? ['draft', 'published', 'archived'] : ['registered', 'cancelled']).includes(query.state)) ||
         (query.payment_state && !['pending', 'paid', 'expired', 'cancelled', 'none'].includes(query.payment_state))) {
@@ -69,6 +70,8 @@ async function readPage(countSql, rowsSql, values, page) {
 }
 
 const countColumns = `(SELECT COUNT(*)::int FROM registration r WHERE r.course_id = c.id) AS total_registrations,
+    (SELECT COUNT(*)::int FROM registration r JOIN payment p ON p.submission_id = r.submission_id
+        WHERE r.course_id = c.id AND p.state = 'paid') AS paid_count,
     (SELECT COUNT(*)::int FROM registration r WHERE r.course_id = c.id AND r.state = 'registered') AS registered_count,
     (SELECT COUNT(*)::int FROM registration r WHERE r.course_id = c.id AND r.state = 'cancelled') AS cancelled_count`;
 
@@ -94,7 +97,7 @@ router.get('/courses', async function listCourses(req, res, next) {
         const now = Date.now();
         res.json({ courses: result.records.map(function summarize(course) {
             return { ...courseSummary(course, now), state: course.state,
-                total_registrations: course.total_registrations, registered_count: course.registered_count,
+                total_registrations: course.total_registrations, paid_count: course.paid_count, registered_count: course.registered_count,
                 cancelled_count: course.cancelled_count };
         }), page: result.page, page_size: result.page_size, total: result.total });
     } catch (error) { next(error); }
@@ -115,7 +118,7 @@ router.get('/courses/:id', async function courseDetails(req, res, next) {
             long_description: course.long_description, information: publicInformation(course.information),
             sessions: course.sessions, attendance_requirement_percent: course.attendance_requirement_percent,
             published_at: course.published_at, questions_editable: questionLockReason(course) === null,
-            total_registrations: course.total_registrations, registered_count: course.registered_count,
+            total_registrations: course.total_registrations, paid_count: course.paid_count, registered_count: course.registered_count,
             cancelled_count: course.cancelled_count } });
     } catch (error) { next(error); }
 });
@@ -140,6 +143,23 @@ router.get('/registrations', async function listRegistrations(req, res, next) {
         JOIN course c ON c.id = r.course_id LEFT JOIN payment p ON p.submission_id = s.id`;
     const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
     try {
+        if (filters.group_by === 'submission') {
+            const result = await readPage(`SELECT COUNT(DISTINCT r.submission_id)::int AS total${from}${where}`,
+                `WITH matching AS (SELECT r.id, r.submission_id${from}${where})
+                 SELECT s.id, s.reference, s.full_name, s.email, s.phone, s.total::text, s.created_at,
+                        s.is_cancelled, p.state AS payment_state,
+                        (SELECT jsonb_agg(jsonb_build_object('id', r.id, 'course_id', r.course_id,
+                                'code', c.code, 'title', c.title, 'fee', r.fee::text,
+                                'created_at', r.created_at, 'state', r.state,
+                                'matches_filters', EXISTS (SELECT 1 FROM matching m WHERE m.id = r.id))
+                                ORDER BY r.created_at, r.id)
+                         FROM registration r JOIN course c ON c.id = r.course_id
+                         WHERE r.submission_id = s.id) AS registrations
+                 FROM submission s LEFT JOIN payment p ON p.submission_id = s.id
+                 WHERE EXISTS (SELECT 1 FROM matching m WHERE m.submission_id = s.id)
+                 ORDER BY s.created_at DESC, s.id DESC`, values, filters.page);
+            return res.json({ submissions: result.records, page: result.page, page_size: result.page_size, total: result.total });
+        }
         const result = await readPage(`SELECT COUNT(*)::int AS total${from}${where}`,
             `SELECT r.id, r.submission_id, s.reference AS submission_reference, s.full_name, s.email, s.phone,
                     r.course_id, c.code, c.title, r.fee, r.created_at, r.state, p.state AS payment_state

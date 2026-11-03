@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SiteLayout from './components/SiteLayout';
 import LoginForm from './components/LoginForm';
-import StaffArea from './components/StaffArea';
+import AdminArea from './components/AdminArea';
 import CourseList from './components/CourseList';
 import CourseDetails from './components/CourseDetails';
 import SelectedCourses from './components/SelectedCourses';
+import Registration from './components/Registration';
+import Notification from './components/Notification';
+import useNotification from './use-notification';
+import applicationText from './application-text';
 import { courseText, feeCents, formatMoney, readSelectedIds } from './course-utils';
 import translations from './translations';
 import { questionDraftDirty } from './question-utils';
@@ -20,13 +24,13 @@ function readLanguage() {
 }
 
 function readPage() {
-    const page = window.location.hash.slice(1);
+    const page = window.location.hash.slice(1).replace(/^staff(?=\/|$)/, 'admin');
     if (!page || page === 'home') return 'courses';
-    if (['courses', 'selected', 'staff'].includes(page)) return page;
+    if (['courses', 'selected', 'admin', 'registration', 'registration/review', 'registration/acknowledgement'].includes(page)) return page;
     if (/^courses\/[1-9]\d*$/.test(page) && Number(page.split('/')[1]) <= 2147483647) return page;
-    if (/^staff\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
+    if (/^admin\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
         (!page.split('/')[2] || Number(page.split('/')[2]) <= 2147483647)) return page;
-    if (/^staff\/courses\/[1-9]\d*\/questions$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
+    if (/^admin\/courses\/[1-9]\d*\/questions$/.test(page) && Number(page.split('/')[2]) <= 2147483647) return page;
     return 'notFound';
 }
 
@@ -62,8 +66,9 @@ function App() {
     const [session, setSession] = useState({ status: 'checking', admin: null, notice: '' });
     const [sessionCheck, setSessionCheck] = useState(0);
     const [busy, setBusy] = useState(false);
-    const [feedback, setFeedback] = useState('');
+    const [notification, notify] = useNotification();
     const [questionDraft, setQuestionDraft] = useState(null);
+    const [applicationDraft, setApplicationDraft] = useState(null);
     const [retryAt, setRetryAt] = useState(0);
     const operationPending = useRef(false);
     const sessionVersion = useRef(0);
@@ -74,14 +79,45 @@ function App() {
         return { ids: readSelectedIds(), notice: '' };
     });
     const [selectionBusy, setSelectionBusy] = useState(false);
-    const [selectionError, setSelectionError] = useState('');
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language] };
+    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language] };
+    const applicationPage = page === 'registration' || page.startsWith('registration/');
+    const applicationCompleted = useCallback(function clearSubmittedSelection() {
+        setSelection({ ids: [], notice: '' });
+    }, []);
+    async function beginApplication() {
+        if (selectionPending.current) return;
+        if (applicationDraft?.pendingPayload) { window.location.hash = 'registration/review'; return; }
+        if (applicationDraft?.receipt) {
+            selectionPending.current = true;
+            setSelectionBusy(true);
+            try {
+                // A deliberate new selection after a known completion starts a fresh browser context.
+                const { response } = await requestJson('application/new', {
+                    method: 'POST', headers: jsonHeaders, body: '{}',
+                });
+                if (!response.ok) throw new Error('Cannot start another application.');
+                setApplicationDraft(null);
+            } catch {
+                notify('applicationLoadError', 'error');
+                return;
+            } finally {
+                selectionPending.current = false;
+                setSelectionBusy(false);
+            }
+        } else {
+            const previousIds = applicationDraft?.definition?.courses.map(function id(course) { return course.id; }).sort(function ascending(a, b) { return a - b; });
+            if (JSON.stringify(previousIds) !== JSON.stringify([...selection.ids].sort(function ascending(a, b) { return a - b; }))) {
+                setApplicationDraft(function update(previous) { return previous ? { ...previous, definition: null, review_token: null } : null; });
+            }
+        }
+        if (window.location.hash === '#selected') window.location.hash = 'registration';
+    }
     const admin = session.status === 'ready' ? session.admin : null;
-    const staffPage = page === 'staff' || page.startsWith('staff/');
-    const expireStaffSession = useCallback(function expireSession() {
+    const adminPage = page === 'admin' || page.startsWith('admin/');
+    const expireAdminSession = useCallback(function expireSession() {
         sessionVersion.current += 1;
         setSession({ status: 'ready', admin: null, notice: 'sessionExpired' });
     }, []);
@@ -93,19 +129,24 @@ function App() {
     });
     const total = selectedCourses.reduce(function addFee(sum, course) { return sum + feeCents(course.fee); }, 0);
     let title = text.courses;
-    if (staffPage) title = !admin ? text.staffLogin : page.endsWith('/questions') ? text.registrationQuestions : page.startsWith('staff/registrations/') ? text.registrationDetails
-        : page === 'staff/registrations' ? text.registrations : page.startsWith('staff/courses/') ? text.courseWorkspace : text.staffCourses;
+    if (adminPage) title = !admin ? text.adminLogin : page.endsWith('/questions') ? text.registrationQuestions : page.startsWith('admin/registrations/') ? text.registrationDetails
+        : page === 'admin/registrations' ? text.registrations : page.startsWith('admin/courses/') ? text.courseWorkspace : text.adminCourses;
+    else if (applicationPage) title = applicationDraft?.receipt || page.endsWith('/acknowledgement') ? text.acknowledgement : page.endsWith('/review') ? text.reviewApplication : text.applicationTitle;
     else if (page === 'selected') title = text.selectedCourses;
     else if (detailId) title = courseText(currentCourse?.title, language) || text.courseDetails;
     else if (page === 'notFound') title = text.pageNotFound;
 
     useEffect(function updateDocument() {
         document.documentElement.lang = language;
-        document.title = `${title} | ${text.siteName}`;
-    }, [language, page, title, text.siteName]);
+        document.title = `${title} | ${adminPage ? text.adminTitle : text.siteName}`;
+    }, [language, page, title, adminPage, text.siteName, text.adminTitle]);
 
     useEffect(function watchNavigation() {
         function changePage() {
+            if (/^#staff(?:\/|$)/.test(window.location.hash)) {
+                window.location.replace(window.location.hash.replace(/^#staff/, '#admin'));
+                return;
+            }
             setPage(readPage());
             requestAnimationFrame(function focusPage() {
                 document.getElementById('page-title')?.focus();
@@ -113,6 +154,10 @@ function App() {
             });
         }
         window.addEventListener('hashchange', changePage);
+        // Old bookmarks resolve to the canonical admin URL without adding a history entry.
+        if (/^#staff(?:\/|$)/.test(window.location.hash)) {
+            window.location.replace(window.location.hash.replace(/^#staff/, '#admin'));
+        }
         return function stopWatching() { window.removeEventListener('hashchange', changePage); };
     }, []);
 
@@ -124,16 +169,24 @@ function App() {
         }
     }, [selection.ids]);
 
+    useEffect(function announceSelection() {
+        if (selection.notice) notify(selection.notice);
+    }, [selection, notify]);
+
+    useEffect(function announceSession() {
+        if (session.status === 'ready' && session.notice) notify(session.notice);
+    }, [session.status, session.notice, notify]);
+
     const dirtyQuestions = questionDraftDirty(questionDraft);
     useEffect(function warnBeforeClosing() {
-        if (!dirtyQuestions) return;
+        if (!dirtyQuestions && (!applicationDraft?.personal || applicationDraft?.receipt)) return;
         function warn(event) { event.preventDefault(); event.returnValue = ''; }
         window.addEventListener('beforeunload', warn);
         return function stopWarning() { window.removeEventListener('beforeunload', warn); };
-    }, [dirtyQuestions]);
+    }, [dirtyQuestions, applicationDraft]);
 
     useEffect(function loadPublicCourses() {
-        if (page === 'staff' || page.startsWith('staff/') || page === 'notFound') return;
+        if (page === 'admin' || page.startsWith('admin/') || page.startsWith('registration') || page === 'notFound') return;
         let ignore = false;
         const version = ++catalogVersion.current;
         async function loadCourses() {
@@ -184,7 +237,11 @@ function App() {
         setSelection(function remove(previous) {
             return { ids: previous.ids.filter(function keep(value) { return value !== id; }), notice: 'courseRemoved' };
         });
-        setSelectionError('');
+    }
+
+    function clearSelectedCourses() {
+        if (selectionPending.current) return;
+        setSelection({ ids: [], notice: 'allCoursesCleared' });
     }
 
     async function toggleCourse(course) {
@@ -192,11 +249,10 @@ function App() {
         if (selection.ids.includes(course.id)) return removeCourse(course.id);
         selectionPending.current = true;
         setSelectionBusy(true);
-        setSelectionError('');
         try {
             const { response, data } = await requestJson(`courses/${course.id}`);
             if (!response.ok || data?.course?.availability !== 'open') {
-                setSelectionError(response.ok || response.status === 404 ? 'courseNotSelectable' : 'courseLoadError');
+                notify(response.ok || response.status === 404 ? 'courseNotSelectable' : 'courseLoadError', 'error');
                 setCourseRefresh(function increment(previous) { return previous + 1; });
                 return;
             }
@@ -210,7 +266,7 @@ function App() {
                 return { ids: previous.ids.includes(course.id) ? previous.ids : [...previous.ids, course.id], notice: 'courseAdded' };
             });
         } catch {
-            setSelectionError('courseLoadError');
+            notify('courseLoadError', 'error');
         } finally {
             selectionPending.current = false;
             setSelectionBusy(false);
@@ -292,7 +348,6 @@ function App() {
         operationPending.current = true;
         sessionVersion.current += 1;
         setBusy(true);
-        setFeedback('');
         try {
             const { response, data } = await requestJson('login', {
                 method: 'POST', headers: jsonHeaders, body: JSON.stringify({ username, password }),
@@ -300,15 +355,16 @@ function App() {
             if (response.ok && hasAdmin(data)) {
                 setQuestionDraft(function keepOwnDraft(previous) { return previous?.adminId === data.admin.id ? previous : null; });
                 setSession({ status: 'ready', admin: data.admin, notice: '' });
+                notify('loggedIn');
             } else {
-                setFeedback(errorKey(response.status));
+                notify(errorKey(response.status), 'error');
                 if (response.status === 429) {
                     const seconds = Number(response.headers.get('Retry-After'));
                     setRetryAt(Date.now() + (Number.isFinite(seconds) && seconds > 0 ? seconds : 900) * 1000);
                 }
             }
         } catch {
-            setFeedback('connectionError');
+            notify('connectionError', 'error');
         } finally {
             operationPending.current = false;
             setBusy(false);
@@ -321,7 +377,6 @@ function App() {
         operationPending.current = true;
         sessionVersion.current += 1;
         setBusy(true);
-        setFeedback('');
         try {
             let failedStatus;
             try {
@@ -345,7 +400,7 @@ function App() {
                         notice: failedStatus >= 500 ? 'logoutWarning' : 'loggedOut' });
                 } else if (response.ok && hasAdmin(data)) {
                     setSession({ status: 'ready', admin: data.admin, notice: '' });
-                    setFeedback('logoutError');
+                    notify('logoutError', 'error');
                 } else {
                     setSession(function uncertain(previous) {
                         return { ...previous, status: 'error', notice: 'logoutUnknown' };
@@ -365,18 +420,23 @@ function App() {
     return (
         <SiteLayout text={text} language={language} onLanguageChange={changeLanguage}
             page={page} admin={admin} title={title} selectedCount={selection.ids.length}>
-            {!staffPage ? (
+            <Notification notice={notification} text={text} />
+            {!adminPage ? (
                 <>
-                    {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : (
+                    {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : applicationPage ? (
+                        <Registration page={page} text={text} language={language} initialSelectedIds={selection.ids}
+                            draft={applicationDraft} onDraftChange={setApplicationDraft} onCompleted={applicationCompleted} onNotice={notify} />
+                    ) : (
                         <>
-                            <div className="selection-toolbar">
+                            {page !== 'selected' && <div className="selection-toolbar">
                                 <span>{text.selectedCount}: {selection.ids.length}</span>
-                                {catalog.status === 'ready' && <span>{text.total}: {formatMoney(total, language)}</span>}
-                                <a href="#selected">{text.reviewSelection}</a>
-                                <button type="button" className="secondary-button" onClick={retryCourses}>{text.refreshCourses}</button>
-                            </div>
-                            {selection.notice && <p className="feedback" role="status">{text[selection.notice]}</p>}
-                            {selectionError && <p className="feedback error" role="alert">{text[selectionError]}</p>}
+                                <div className="selection-money">
+                                    {catalog.status === 'ready' && <span>{text.total}: {formatMoney(total, language)}</span>}
+                                {page === 'courses' && <button type="button" className="secondary-button"
+                                    disabled={selectionBusy || !selection.ids.length} onClick={clearSelectedCourses}>{text.clearAllCourses}</button>}
+                                </div>
+                                <a className="button selection-apply" href="#selected">{text.apply}</a>
+                            </div>}
                             {selectionBusy && <p role="status">{text.checkingSelection}</p>}
                             {detailId && catalog.status === 'error' && <p role="alert">{text.courseLoadError}</p>}
                             {detailId ? (
@@ -389,10 +449,10 @@ function App() {
                                         <button type="button" onClick={retryCourses}>{text.tryAgain}</button></section>
                                 ) : page === 'selected' ? (
                                     <SelectedCourses courses={selectedCourses} text={text} language={language}
-                                        busy={selectionBusy} onRemove={removeCourse} />
+                                        busy={selectionBusy} onRemove={removeCourse} onStart={beginApplication} />
                                 ) : (
                                     <CourseList courses={catalog.courses} text={text} language={language} filters={filters}
-                                        onFilter={setFilters} selectedIds={selection.ids} busy={selectionBusy} onToggle={toggleCourse} />
+                                        onFilter={setFilters} selectedIds={selection.ids} busy={selectionBusy} onToggle={toggleCourse} onRefresh={retryCourses} />
                                 )}
                         </>
                     )}
@@ -407,12 +467,11 @@ function App() {
                     <button type="button" onClick={retrySession}>{text.tryAgain}</button>
                 </section>
             ) : admin ? (
-                <StaffArea key={admin.id} text={text} language={language} page={page} admin={admin} busy={busy}
-                    feedback={feedback} onLogout={handleLogout} onSessionExpired={expireStaffSession}
+                <AdminArea key={admin.id} text={text} language={language} page={page} admin={admin} busy={busy}
+                    onNotice={notify} onLogout={handleLogout} onSessionExpired={expireAdminSession}
                     questionDraft={questionDraft} onQuestionDraftChange={setQuestionDraft} />
             ) : (
-                <LoginForm text={text} busy={busy} feedback={feedback}
-                    notice={session.notice} retryAt={retryAt} onLogin={handleLogin} />
+                <LoginForm text={text} busy={busy} retryAt={retryAt} onLogin={handleLogin} />
             )}
         </SiteLayout>
     );

@@ -37,7 +37,6 @@ function CourseDetails({ id, text, language, selected, busy, onToggle, onLoaded,
                         setResult({ id, status: 'loading' });
                         setRetry(function increment(previous) { return previous + 1; });
                     }}>{text.tryAgain}</button>
-                    <a href="#courses">{text.backToCourses}</a>
                 </div>
             </section>
         );
@@ -50,13 +49,12 @@ function CourseDetails({ id, text, language, selected, busy, onToggle, onLoaded,
             <p className="course-code">{course.code}</p>
             <p>{courseText(course.short_description, language)}</p>
             <div className="course-actions">
-                <a href="#courses">{text.backToCourses}</a>
-                <button type="button" aria-pressed={selected}
+                <span className={`course-availability ${course.availability}`}>{text[course.availability]}</span>
+                <button type="button" className="course-selection-action" aria-pressed={selected}
                     disabled={busy || (!selected && course.availability !== 'open')}
                     onClick={function toggle() { onToggle(course); }}>
                     {selected ? text.remove : text.selectCourse}
                 </button>
-                <span className={`course-availability ${course.availability}`}>{text[course.availability]}</span>
             </div>
             <CourseInformation course={course} text={text} language={language} />
         </article>

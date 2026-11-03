@@ -105,11 +105,6 @@ button:disabled {
     gap: 16px;
 }
 
-.staff-access {
-    padding: 8px 16px;
-    font-size: 14px;
-}
-
 .language-controls button {
     min-width: 44px;
     padding: 8px 12px;
@@ -158,8 +153,10 @@ button:disabled {
     padding-block: 24px 64px;
 }
 
+.page-navigation { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 32px; }
+.page-back { flex-shrink: 0; }
 .breadcrumb {
-    margin-bottom: 32px;
+    margin-inline-start: auto;
     font-size: 14px;
     color: #6b6b6b;
 }
@@ -206,7 +203,7 @@ p {
 }
 
 .login-form,
-.staff-area {
+.admin-area {
     width: 100%;
     max-width: 760px;
     margin: 0;
@@ -376,7 +373,7 @@ p {
     }
 
     .login-form,
-    .staff-area {
+    .admin-area {
         padding: 20px 16px;
     }
 
@@ -418,6 +415,13 @@ p {
     max-width: 100%;
     overflow-wrap: anywhere;
 }
+
+.selection-money { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.selection-toolbar .selection-apply { margin-inline-start: auto; }
+.course-filter-actions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.notifications { position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); left: max(16px, env(safe-area-inset-left)); z-index: 100; width: min(360px, calc(100vw - 32px)); pointer-events: none; }
+.notification-toast { padding: 16px 20px; border: 1px solid var(--border); border-left: 4px solid var(--teal); background: #fff; color: var(--navy); box-shadow: 0 4px 16px #0002; overflow-wrap: anywhere; }
+.notification-toast.error { border-left-color: #a22b32; }
 
 .secondary-button {
     color: var(--navy);
@@ -560,6 +564,8 @@ p {
     overflow-wrap: anywhere;
 }
 
+.course-detail .course-selection-action { margin-inline-start: auto; }
+
 .course-card .course-actions {
     margin-top: auto;
     margin-bottom: 0;
@@ -614,15 +620,27 @@ p {
 }
 
 .selected-course-list li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 16px;
+    display: block;
     margin-bottom: 16px;
-    padding: 20px 16px;
-    border-top: 2px solid var(--teal);
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--teal);
     background: #f5f5f5;
 }
+
+.selected-course-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; }
+.selected-course-row > * { min-width: 0; }
+.selected-course-info h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; line-height: 1.4; }
+.selected-course-info h2 a { text-decoration: none; }
+.selected-course-info h2 a:hover { text-decoration: underline; }
+.selected-course-info .course-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0 0; }
+.selected-course-info .course-facts > div { display: block; margin: 0; }
+.selected-course-info .course-facts dt { color: #555; margin-bottom: 4px; }
+.selected-course-info .course-availability { margin-bottom: 0; }
+.selected-course-actions { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; min-width: 140px; }
+.selected-course-fee { margin: 0 0 4px; text-align: right; }
+.selected-course-fee span, .selected-course-fee strong { display: block; }
+.selected-course-fee strong { font-size: 22px; color: var(--navy); }
 
 .selected-course-list li > * {
     min-width: 0;
@@ -630,7 +648,7 @@ p {
 }
 
 .selected-course-list .course-code {
-    margin: 8px 0 0;
+    margin: 0 0 12px;
 }
 
 .selection-total {
@@ -651,7 +669,8 @@ p {
 
 @media (max-width: 600px) {
     .course-grid,
-    .selected-course-list li,
+    .selected-course-row,
+    .selected-course-info .course-facts,
     .course-overview > div {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -660,19 +679,19 @@ p {
         padding: 20px 16px;
     }
 
-    .selected-course-list button {
-        justify-self: start;
-    }
+    .selected-course-list li { padding: 20px 16px; }
+    .selected-course-actions { align-items: flex-start; }
+    .selected-course-fee { text-align: left; }
 }
 
-/* Protected staff viewing pages. */
-.staff-workspace,
-.staff-workspace section,
-.staff-registration-details {
+/* Protected admin viewing pages. */
+.admin-workspace,
+.admin-workspace section,
+.admin-registration-details {
     min-width: 0;
 }
 
-.staff-account {
+.admin-account {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -683,19 +702,19 @@ p {
     background: #f5f5f5;
 }
 
-.staff-account p {
+.admin-account p {
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-.staff-workspace h2,
-.staff-workspace h3 {
+.admin-workspace h2,
+.admin-workspace h3 {
     color: var(--navy);
     overflow-wrap: anywhere;
 }
 
-.staff-filters {
+.admin-filters {
     display: grid;
     grid-template-columns: minmax(200px, 2fr) repeat(2, minmax(140px, 1fr)) auto auto;
     align-items: end;
@@ -705,13 +724,13 @@ p {
     background: #f0ecd9;
 }
 
-.staff-filters label {
+.admin-filters label {
     display: block;
     min-width: 0;
 }
 
-.staff-filters input,
-.staff-filters select {
+.admin-filters input,
+.admin-filters select {
     display: block;
     width: 100%;
     min-width: 0;
@@ -725,15 +744,15 @@ p {
     font: inherit;
 }
 
-.staff-table {
+.admin-table {
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
     margin-block: 24px;
 }
 
-.staff-table th,
-.staff-table td {
+.admin-table th,
+.admin-table td {
     padding: 12px;
     border-bottom: 1px solid var(--border);
     text-align: left;
@@ -741,40 +760,54 @@ p {
     overflow-wrap: anywhere;
 }
 
-.staff-table th {
+.admin-table th {
     color: var(--navy);
     background: #eee;
     font-weight: 500;
 }
 
-.staff-table tbody tr:nth-child(even) {
+.admin-table tbody tr:nth-child(even) {
     background: #f8f8f8;
 }
 
-.staff-table td > span {
+.admin-table td > span {
     display: block;
     margin-top: 8px;
 }
 
-.staff-course-table th:first-child {
+.admin-course-table th:first-child {
     width: 28%;
 }
 
-.staff-registration-table th:nth-child(2) {
+.admin-registration-table th:nth-child(2) {
     width: 20%;
 }
 
-.staff-registration-table th:nth-child(3) {
+.admin-registration-table th:nth-child(3) {
     width: 24%;
 }
 
-.staff-row-link {
+.submission-group { margin-block: 24px 32px; border: 1px solid var(--border); border-top: 3px solid var(--teal); }
+.submission-group-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px 40px; padding: 20px; background: #f5f5f5; }
+.submission-participant h2 { margin: 0 0 12px; font-size: 20px; font-weight: 500; }
+.submission-participant p { margin: 4px 0; overflow-wrap: anywhere; }
+.submission-summary { margin: 0; }
+.submission-summary > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+.submission-summary dt { color: var(--navy); }
+.submission-summary dd { margin: 0; text-align: end; overflow-wrap: anywhere; }
+.admin-group-table { margin-block: 0; }
+.admin-group-table th:nth-child(1) { width: 12%; }
+.admin-group-table th:nth-child(2) { width: 40%; }
+.registration-context { color: #666; font-size: 14px; }
+@media (max-width: 767px) { .submission-group-header { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+
+.admin-row-link {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
 }
 
-.staff-pagination {
+.admin-pagination {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -782,15 +815,15 @@ p {
     margin-block: 24px 32px;
 }
 
-.staff-pagination p {
+.admin-pagination p {
     margin: 0 auto 0 0;
 }
 
-.staff-fields {
+.admin-fields {
     margin: 0;
 }
 
-.staff-fields > div {
+.admin-fields > div {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
     gap: 8px 24px;
@@ -798,26 +831,27 @@ p {
     border-bottom: 1px solid var(--border);
 }
 
-.staff-fields dt {
+.admin-fields dt {
     color: var(--navy);
 }
 
-.staff-fields dd {
+.admin-fields dd {
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-.staff-related {
+.admin-related {
     padding-left: 24px;
 }
 
-.staff-related li {
+.admin-related li {
     margin-block: 16px;
     overflow-wrap: anywhere;
 }
 
-.staff-related span {
+.admin-related a,
+.admin-related span {
     display: block;
 }
 
@@ -992,20 +1026,20 @@ p {
 }
 
 @media (max-width: 991px) {
-    .staff-filters {
+    .admin-filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .staff-filters label:first-child {
+    .admin-filters label:first-child {
         grid-column: 1 / -1;
     }
 
-    .staff-table,
-    .staff-table tbody {
+    .admin-table,
+    .admin-table tbody {
         display: block;
     }
 
-    .staff-table thead {
+    .admin-table thead {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -1013,25 +1047,25 @@ p {
         clip-path: inset(50%);
     }
 
-    .staff-table tbody {
+    .admin-table tbody {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 20px;
     }
 
-    .staff-table tr {
+    .admin-table tr {
         display: block;
         min-width: 0;
         border-top: 2px solid var(--teal);
         background: #f8f8f8;
     }
 
-    .staff-table td {
+    .admin-table td {
         display: block;
         padding: 12px 16px;
     }
 
-    .staff-table td::before {
+    .admin-table td::before {
         content: attr(data-label);
         display: block;
         margin-bottom: 6px;
@@ -1041,13 +1075,44 @@ p {
 }
 
 @media (max-width: 600px) {
-    .staff-filters,
-    .staff-table tbody,
-    .staff-fields > div {
+    .admin-filters,
+    .admin-table tbody,
+    .admin-fields > div {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .staff-pagination p {
+    .admin-pagination p {
         flex-basis: 100%;
     }
 }
+
+
+.application-steps { display: flex; gap: 24px; list-style: none; padding: 0; margin: 0 0 32px; border-bottom: 1px solid var(--border); }
+.application-steps li { display: flex; align-items: center; gap: 8px; padding-bottom: 16px; color: #555; }
+.application-steps li[aria-current="step"] { color: var(--navy); border-bottom: 3px solid var(--teal); font-weight: 700; }
+.application-steps span { display: inline-flex; justify-content: center; align-items: center; width: 28px; height: 28px; border: 1px solid currentColor; flex-shrink: 0; }
+.application-columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); align-items: start; gap: 36px; }
+.application-columns > div { min-width: 0; }
+.application-summary { padding: 24px; background: #f5f6f8; border-top: 4px solid var(--navy); overflow-wrap: anywhere; }
+.application-summary h2 { margin-top: 0; }
+.application-summary ul { list-style: none; padding: 0; margin: 0; }
+.application-summary li { display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.application-summary strong { white-space: nowrap; }
+.application-fields { border: 0; padding: 0; margin: 0 0 32px; min-width: 0; }
+.application-fields > legend { color: var(--navy); font-weight: 700; font-size: 24px; padding: 0; margin-bottom: 20px; }
+.application-field { margin-bottom: 20px; }
+.application-field label { display: block; margin-bottom: 6px; font-weight: 700; }
+.application-field input, .application-field select, .application-field textarea { width: 100%; min-height: 44px; border: 1px solid #8993a5; padding: 10px 12px; font: inherit; background: #fff; color: #000; border-radius: 0; }
+.application-field textarea { resize: vertical; }
+.application-field select { max-width: 260px; }
+.application-field small { display: block; margin-top: 4px; }
+.application .preview-question { margin: 0 0 20px; padding: 0; border: 0; }
+.application .preview-question > legend { font-weight: 700; margin-bottom: 6px; }
+.application .question-checkbox { display: flex; align-items: flex-start; gap: 10px; padding-block: 8px; }
+.application-privacy { padding: 20px; border: 1px solid var(--border); }
+.application-privacy h3 { margin-top: 0; }
+.application-received { padding: 20px 24px; border-left: 4px solid var(--teal); background: #f5f6f8; margin-bottom: 32px; overflow-wrap: anywhere; }
+.application-received h2 { margin-top: 0; }
+.application .admin-fields dd { overflow-wrap: anywhere; }
+@media (max-width: 900px) { .application-columns { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .application-steps { gap: 12px; font-size: 14px; } .application-steps li { flex-direction: column; align-items: start; flex: 1; } .application-summary { padding: 16px; } }

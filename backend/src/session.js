@@ -20,9 +20,11 @@ const cookieOptions = {
     secure: process.env.NODE_ENV === 'production'
 };
 
+const sessionStore = new PgSession({ pool, createTableIfMissing: true, disableTouch: true });
+
 const sessionMiddleware = expressSession({
     name: cookieName,
-    store: new PgSession({ pool, createTableIfMissing: true, disableTouch: true }),
+    store: sessionStore,
     secret,
     resave: false,
     saveUninitialized: false,
@@ -62,4 +64,4 @@ async function endSession(req, res) {
     }
 }
 
-module.exports = { sessionMiddleware, startSession, endSession };
+module.exports = { sessionMiddleware, sessionStore, startSession, endSession };

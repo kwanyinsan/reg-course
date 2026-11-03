@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-function LoginForm({ text, busy, feedback, notice, retryAt, onLogin }) {
+function LoginForm({ text, busy, retryAt, onLogin }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState({});
@@ -37,7 +37,6 @@ function LoginForm({ text, busy, feedback, notice, retryAt, onLogin }) {
     return (
         <form className="login-form" onSubmit={handleSubmit} noValidate aria-busy={busy}>
             <p className="form-introduction">{text.loginIntroduction}</p>
-            {notice && <p className="feedback" role="status">{text[notice]}</p>}
             <div className="form-field">
                 <label htmlFor="username">{text.username}</label>
                 <input id="username" name="username" autoComplete="username" autoCapitalize="none"
@@ -55,7 +54,6 @@ function LoginForm({ text, busy, feedback, notice, retryAt, onLogin }) {
                     onChange={function changePassword(event) { setPassword(event.target.value); }} />
                 {errors.password && <p id="password-error" className="field-error">{text[errors.password]}</p>}
             </div>
-            {feedback && <p className="feedback error" role="alert">{text[feedback]}</p>}
             <button className="login-button" type="submit" disabled={busy || throttled}>
                 {busy ? text.loggingIn : text.logIn}
             </button>

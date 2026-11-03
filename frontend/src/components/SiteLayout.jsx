@@ -1,5 +1,12 @@
 function SiteLayout({ text, language, onLanguageChange, page, admin, title, selectedCount, children }) {
-    const staffPage = page === 'staff' || page.startsWith('staff/');
+    const adminPage = page === 'admin' || page.startsWith('admin/');
+    let backLink = null;
+    if (page.startsWith('courses/')) backLink = { href: '#courses', label: text.backToCourses, parent: text.courses };
+    if (adminPage && admin) {
+        if (page.endsWith('/questions')) backLink = { href: `#admin/courses/${page.split('/')[2]}`, label: text.backToCourse, parent: text.courseDetails };
+        else if (page.startsWith('admin/courses/')) backLink = { href: '#admin/courses', label: text.backToCourses, parent: text.courses };
+        else if (page.startsWith('admin/registrations/')) backLink = { href: '#admin/registrations', label: text.backToRegistrations, parent: text.registrations };
+    }
     const languages = [
         { code: 'en', label: 'EN', name: 'English' },
         { code: 'zh-Hant', label: '繁', name: '繁體中文' },
@@ -14,7 +21,7 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
             }}>{text.skipToContent}</a>
             <header className="site-header">
                 <div className="header-content content-width">
-                    <a className="site-name" href="#courses">{text.siteName}</a>
+                    <a className="site-name" href={adminPage ? admin ? '#admin/courses' : '#admin' : '#courses'}>{adminPage ? text.adminArea : text.siteName}</a>
                     <div className="header-actions">
                         <div className="language-controls" role="group" aria-label={text.language}>
                             {languages.map(function languageButton(item) {
@@ -27,33 +34,31 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                                 );
                             })}
                         </div>
-                        <a className="button staff-access" href="#staff"
-                            aria-current={staffPage ? 'page' : undefined}>
-                            {admin ? text.staffArea : text.staffLogin}
-                        </a>
                     </div>
                 </div>
-                <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
-                    {staffPage ? <>
-                        {admin && <><a href="#staff/courses" aria-current={page === 'staff' || page.startsWith('staff/courses') ? 'page' : undefined}>{text.staffCourses}</a>
-                            <a href="#staff/registrations" aria-current={page.startsWith('staff/registrations') ? 'page' : undefined}>{text.registrations}</a></>}
-                        <a href="#courses">{text.publicCourses}</a>
+                {(!adminPage || admin) && <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
+                    {adminPage ? <>
+                        {admin && <><a href="#admin/courses" aria-current={page === 'admin' || page.startsWith('admin/courses') ? 'page' : undefined}>{text.adminCourses}</a>
+                            <a href="#admin/registrations" aria-current={page.startsWith('admin/registrations') ? 'page' : undefined}>{text.registrations}</a></>}
                     </> : <>
                     <a href="#courses" aria-current={page.startsWith('courses') ? 'page' : undefined}>{text.courses}</a>
                     <a href="#selected" aria-current={page === 'selected' ? 'page' : undefined}>
                         {text.selectedCourses} ({selectedCount})
                     </a>
                     </>}
-                </nav>
+                </nav>}
             </header>
             <main id="main-content" className="main-content content-width" tabIndex="-1">
                 {page !== 'courses' && (
+                    <div className="page-navigation">
+                    {backLink && <a className="page-back" href={backLink.href}>{backLink.label}</a>}
                     <nav className="breadcrumb" aria-label={text.breadcrumb}>
                         <ol>
-                            <li><a href={staffPage && admin ? '#staff/courses' : '#courses'}>{staffPage && admin ? text.staffArea : text.courses}</a></li>
+                            <li><a href={backLink?.href || (adminPage ? admin ? '#admin/courses' : '#admin' : '#courses')}>{backLink?.parent || (adminPage ? text.adminArea : text.courses)}</a></li>
                             <li aria-current="page">{title}</li>
                         </ol>
                     </nav>
+                    </div>
                 )}
                 <h1 id="page-title" tabIndex="-1">{title}</h1>
                 {children}
