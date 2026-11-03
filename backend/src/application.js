@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('node:crypto');
 const pool = require('./db');
 const writeLog = require('./log');
+const acknowledgement = require('./acknowledgement');
 const { sessionStore } = require('./session');
 const { availability } = require('./courses');
 const { fail, exactKeys, courseIds, fingerprint, validateApplication } = require('./application-validation');
@@ -46,6 +47,7 @@ async function readySessionTable() {
 async function transaction(req, res, create, operation) {
     await readySessionTable();
     const client = await pool.connect();
+    let committed = false;
     try {
         await client.query('BEGIN');
         await client.query("SET LOCAL lock_timeout = '5s'");
@@ -67,10 +69,11 @@ async function transaction(req, res, create, operation) {
         const result = await operation(client, row.sess);
         await client.query('UPDATE session SET sess = $2 WHERE sid = $1', [`application:${token}`, row.sess]);
         await client.query('COMMIT');
+        committed = true;
         if (fresh) res.cookie(cookieName, token, { ...cookieOptions, expires: row.expire });
-        res.status(result.status || 200).json(result.body);
+        return result;
     } catch (error) {
-        await client.query('ROLLBACK');
+        if (!committed) await client.query('ROLLBACK');
         throw error;
     } finally { client.release(); }
 }
@@ -98,7 +101,8 @@ async function receipt(client, session) {
                 comments, total, created_at FROM submission WHERE id = $1`, [session.submission_id]);
     if (!result.rowCount) fail('application_not_found', 404);
     const registrations = await client.query('SELECT id, course_id, fee, answers FROM registration WHERE submission_id = $1 ORDER BY course_id', [session.submission_id]);
-    return { submission: result.rows[0], registrations: registrations.rows.map(function details(registration) {
+    return { submission: result.rows[0], acknowledgement_email: await acknowledgement.status(client, session.submission_id),
+        registrations: registrations.rows.map(function details(registration) {
         const course = session.definition.courses.find(function match(course) { return course.id === registration.course_id; });
         return { ...registration, code: course.code, title: course.title, definition: course.definition };
     }) };
@@ -108,7 +112,7 @@ router.post('/definition', async function applicationDefinition(req, res, next) 
     try {
         exactKeys(req.body, ['course_ids']);
         const ids = courseIds(req.body.course_ids);
-        await transaction(req, res, true, async function prepare(client, session) {
+        const result = await transaction(req, res, true, async function prepare(client, session) {
             if (session.submission_id) fail('application_completed', 409);
             const definition = await definitionFor(client, ids);
             if (!session.definition || fingerprint(session.definition) !== fingerprint(definition)) {
@@ -117,12 +121,13 @@ router.post('/definition', async function applicationDefinition(req, res, next) 
             }
             return { body: { definition, review_token: session.review_token } };
         });
+        res.json(result.body);
     } catch (error) { next(error); }
 });
 
 router.post('/', async function submitApplication(req, res, next) {
     try {
-        await transaction(req, res, false, async function submit(client, session) {
+        const result = await transaction(req, res, false, async function submit(client, session) {
             if (!session.definition) fail('application_expired', 401);
             const application = validateApplication(req.body, session.definition);
             const hash = fingerprint(application);
@@ -156,18 +161,31 @@ router.post('/', async function submitApplication(req, res, next) {
             // Payment is a display placeholder in this work; do not invent a deadline or transaction.
             await writeLog(client, { actorType: 'participant', event: 'application.submitted', submissionId: session.submission_id,
                 details: { registrations: current.courses.length } });
+            await acknowledgement.request(client, session.submission_id);
             session.payload_hash = hash;
-            return { status: 201, body: { receipt: await receipt(client, session), repeated: false } };
+            return { status: 201, submissionId: session.submission_id,
+                body: { receipt: await receipt(client, session), repeated: false } };
         });
+        if (result.status === 201) {
+            try {
+                result.body.receipt.acknowledgement_email = await acknowledgement.send(result.submissionId);
+            } catch {
+                // The application is already committed. Mail preparation must not turn it into a failed submission.
+                console.error('Acknowledgement attempt could not start for submission', result.submissionId);
+                result.body.receipt.acknowledgement_email = { status: 'uncertain', updated_at: null };
+            }
+        }
+        res.status(result.status || 200).json(result.body);
     } catch (error) { next(error); }
 });
 
 router.get('/result', async function applicationResult(req, res, next) {
     try {
-        await transaction(req, res, false, async function read(client, session) {
+        const result = await transaction(req, res, false, async function read(client, session) {
             if (!session.submission_id) fail('application_not_found', 404);
             return { body: { receipt: await receipt(client, session) } };
         });
+        res.json(result.body);
     } catch (error) { next(error); }
 });
 

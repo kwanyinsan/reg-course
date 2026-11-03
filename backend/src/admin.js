@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('./db');
+const acknowledgement = require('./acknowledgement');
 const { courseSummary, publicInformation } = require('./courses');
 const questionRoutes = require('./questions');
 const { questionLockReason } = require('./question-definition');
@@ -199,7 +200,8 @@ router.get('/registrations/:id', async function registrationDetails(req, res, ne
                 `SELECT r.id, r.course_id, c.code, c.title, r.fee, r.state FROM registration r
                  JOIN course c ON c.id = r.course_id WHERE r.submission_id = $1 ORDER BY r.id`,
                 [details.submission.id]);
-            return { ...details, related_registrations: related.rows };
+            return { ...details, related_registrations: related.rows,
+                acknowledgement_email: await acknowledgement.status(client, details.submission.id) };
         });
         if (!result) return res.status(404).json({ message: 'Registration not found.' });
         res.json(result);

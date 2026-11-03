@@ -36,7 +36,7 @@ function AdminRegistrationDetails({ id, text, language, onSessionExpired }) {
     function field(label, value, key = label) { return <div key={key}><dt>{label}</dt><dd className="course-description">{value || text.notProvided}</dd></div>; }
     if (result.id !== id || result.status === 'loading') return <p role="status">{text.loadingRegistrations}</p>;
     if (result.status === 'error') return <section><p role="alert">{text[result.message]}</p><button type="button" onClick={function retry() { setResult({ id, status: 'loading' }); setRefresh(refresh + 1); }}>{text.tryAgain}</button></section>;
-    const { registration, submission, course, payment, questions, related_registrations: related } = result.data;
+    const { registration, submission, course, payment, questions, acknowledgement_email: email, related_registrations: related } = result.data;
     const bank = questions?.questions || [];
     return (
         <article className="admin-registration-details">
@@ -58,6 +58,8 @@ function AdminRegistrationDetails({ id, text, language, onSessionExpired }) {
             </section>
             <section className="course-section"><h2>{text.submission}</h2>
                 <dl className="admin-fields">{field(text.reference, submission.reference)}{field(text.createdAt, date(submission.created_at))}{field(text.submissionTotal, money(submission.total))}{field(text.submissionState, submission.is_cancelled ? text.state_cancelled : text.notCancelled)}</dl>
+                <dl className="admin-fields">{field(text.acknowledgementEmail, text[`emailStatus_${email?.status || 'not_requested'}`])}
+                    {field(text.emailUpdatedAt, date(email?.updated_at))}</dl>
                 <h3>{text.relatedRegistrations}</h3>
                 <ul className="admin-related">{related.map(function relatedRegistration(item) {
                     return <li key={item.id}><a href={`#admin/registrations/${item.id}`}>{text.registration} #{item.id}</a><a href={`#admin/courses/${item.course_id}`}>{item.code} — {courseText(item.title, language)}</a><span>{money(item.fee)} — {text[`state_${item.state}`]}</span></li>;

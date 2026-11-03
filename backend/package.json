@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/db.js && node --check src/check-db.js && node --check src/seed.js && node --check src/session.js && node --check src/auth.js && node --check src/security.js && node --check src/log.js && node --check src/courses.js && node --check src/demo-courses.js && node --check src/seed-demo-courses.js && node --check src/admin.js && node --check src/update-course-wording.js && node --check src/seed-demo-registrations.js && node --check src/question-definition.js && node --check src/questions.js && node --check src/update-course-fees.js && node --check src/application-validation.js && node --check src/application.js",
+    "check": "node --check src/server.js && node --check src/db.js && node --check src/check-db.js && node --check src/seed.js && node --check src/session.js && node --check src/auth.js && node --check src/security.js && node --check src/log.js && node --check src/courses.js && node --check src/demo-courses.js && node --check src/seed-demo-courses.js && node --check src/admin.js && node --check src/update-course-wording.js && node --check src/seed-demo-registrations.js && node --check src/question-definition.js && node --check src/questions.js && node --check src/update-course-fees.js && node --check src/application-validation.js && node --check src/application.js && node --check src/mail.js && node --check src/acknowledgement.js && node --check src/seed-acknowledgement.js && node --check src/resend-acknowledgement.js",
     "db:check": "node src/check-db.js",
     "seed": "node src/seed.js",
     "seed:demo": "node src/seed-demo-courses.js",
@@ -15,7 +15,10 @@
     "seed:registrations": "node src/seed-demo-registrations.js",
     "update:course-fees": "node src/update-course-fees.js",
     "test:application": "node --test test/application.test.js",
-    "test:admin": "node --test test/admin.test.js"
+    "test:admin": "node --test test/admin.test.js",
+    "mail:template": "node src/seed-acknowledgement.js",
+    "mail:resend": "node src/resend-acknowledgement.js",
+    "test:mail": "node --test test/mail.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -23,6 +26,7 @@
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
     "express-session": "^1.19.0",
+    "nodemailer": "^10.3.1",
     "pg": "^8.23.1"
   }
 }

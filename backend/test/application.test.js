@@ -5,6 +5,8 @@ const path = require('node:path');
 // This script is copied into backend/test; it exercises the actual router and SQL guards.
 const pool = require('../src/db');
 const { validateApplication } = require('../src/application-validation');
+const acknowledgement = require('../src/acknowledgement');
+const mail = require('../src/mail');
 
 test('public application transactions, validation and private recovery', async function integration() {
     const schema = `registration_test_${process.pid}_${Date.now()}`;
@@ -12,10 +14,22 @@ test('public application transactions, validation and private recovery', async f
     pool.options.options = `-c search_path=${schema},public`;
     let server;
     let store;
+    let sent = 0;
+    let failMail = false;
     try {
         await pool.query(`CREATE SCHEMA "${schema}"`);
         await pool.query(fs.readFileSync(path.join(__dirname, '../../database/schema.sql'), 'utf8'));
         await pool.query('CREATE TABLE session (sid varchar PRIMARY KEY, sess json NOT NULL, expire timestamp NOT NULL)');
+        await acknowledgement.installTemplate();
+        // Never contact a real SMTP service from application tests.
+        mail.sendMessage = async function controlledMessage(message) {
+            sent++;
+            const reference = message.subject.split(' — ')[1];
+            const visible = await pool.query('SELECT id FROM submission WHERE reference=$1', [reference]);
+            assert.equal(visible.rowCount, 1, 'SMTP must run after the submission is visible outside its transaction');
+            if (failMail) throw Object.assign(new Error('Do not log this private SMTP diagnostic.'), { code: 'EAUTH' });
+            return { accepted: [message.to], messageId: 'application-test-message' };
+        };
         const sessions = [{ id: 'session_1', starts_at: '2027-01-01T10:00:00+08:00', ends_at: '2027-01-01T12:00:00+08:00', topic: { en: 'Session' }, mode: 'in_person' }];
         const questions = { questions: [
             { id: 'goal', label: { en: 'Your goal' }, type: 'text', required: true },
@@ -78,7 +92,9 @@ test('public application transactions, validation and private recovery', async f
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 1);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM registration')).rows[0].n, 2);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 0);
-        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM log')).rows[0].n, 3);
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM log')).rows[0].n, 6);
+        assert.equal(sent, 1);
+        assert.equal((await call('/result', undefined, prepared.cookie)).data.receipt.acknowledgement_email.status, 'accepted');
         const reordered = structuredClone(body);
         reordered.answers[ids[0]].topics.reverse();
         assert.equal((await call('', reordered, prepared.cookie)).status, 200);
@@ -106,6 +122,7 @@ test('public application transactions, validation and private recovery', async f
         assert.equal((await call('', payload(failed), failed.cookie)).status, 500);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 1);
         assert.equal((await call('/result', undefined, failed.cookie)).status, 404);
+        assert.equal(sent, 1, 'Rolled-back and invalid applications must not send mail');
         await pool.query('DROP TRIGGER fail_test_log ON log');
         const free = await prepare([ids[0]]);
         assert.equal((await call('', payload(free), free.cookie)).status, 201);
@@ -113,7 +130,17 @@ test('public application transactions, validation and private recovery', async f
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 0);
         await call('/new', {}, free.cookie);
         assert.equal((await call('/result', undefined, free.cookie)).status, 401);
-        console.log('Verified: validation, consent, both question types, per-course answers, CSRF, atomic rollback, concurrent retry, private receipt, expiry, changed definition, free total and no payment records.');
+        assert.equal(sent, 2, 'Repeated submissions and acknowledgement recovery must not send again');
+        failMail = true;
+        const emailFailure = await prepare();
+        const savedDespiteMail = await call('', payload(emailFailure), emailFailure.cookie);
+        assert.equal(savedDespiteMail.status, 201);
+        assert.equal(savedDespiteMail.data.receipt.acknowledgement_email.status, 'failed');
+        assert.equal((await call('/result', undefined, emailFailure.cookie)).data.receipt.acknowledgement_email.status, 'failed');
+        assert.equal((await call('', payload(emailFailure), emailFailure.cookie)).status, 200);
+        assert.equal(sent, 3);
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 3);
+        console.log('Verified: application validation, atomic rollback, post-commit mail, concurrent retry, private recovery, expiry, SMTP failure preserving registrations and no payment records.');
     } finally {
         if (server) await new Promise(function close(resolve) { server.close(resolve); });
         if (store) store.close();

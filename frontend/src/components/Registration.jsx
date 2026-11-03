@@ -10,8 +10,8 @@ function answerValue(bank, id) {
     return bank && Object.hasOwn(bank, id) ? bank[id] : undefined;
 }
 
-async function request(path, body) {
-    const response = await fetch(`/api/application${path}`, { signal: AbortSignal.timeout(15000),
+async function request(path, body, timeout = 15000) {
+    const response = await fetch(`/api/application${path}`, { signal: AbortSignal.timeout(timeout),
         ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'reg-course' }, body: JSON.stringify(body) }) });
     const data = await response.json();
     if (!response.ok) throw Object.assign(new Error('Application request failed.'), { code: data.code, status: response.status });
@@ -161,7 +161,7 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
         const payload = draft.pendingPayload || { review_token: draft.review_token, personal: draft.personal, answers: cleanAnswers(draft) };
         onDraftChange({ ...draft, pendingPayload: payload });
         try {
-            await showReceipt((await request('', payload)).receipt);
+            await showReceipt((await request('', payload, 30000)).receipt);
         } catch (error) {
             // A response may be lost after COMMIT. Read the browser-bound result first.
             try {
@@ -189,11 +189,25 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
         finally { pending.current = false; setBusy(false); }
     }
 
+    async function checkEmailStatus() {
+        if (pending.current) return;
+        pending.current = true;
+        setBusy(true);
+        try {
+            const result = await request('/result');
+            onDraftChange({ receipt: result.receipt });
+            onNotice('emailStatusChecked');
+        } catch {
+            onNotice('emailCheckError', 'error');
+        } finally { pending.current = false; setBusy(false); }
+    }
+
     function discard() {
         if (!busy && !draft.pendingPayload && window.confirm(text.confirmDiscardApplication)) startNew();
     }
 
     const receipt = draft?.receipt;
+    const emailStatus = receipt?.acknowledgement_email?.status || 'not_requested';
     const acknowledgementPage = page === 'registration/acknowledgement';
     const reviewPage = page === 'registration/review';
     const step = receipt || acknowledgementPage ? 2 : reviewPage ? 1 : 0;
@@ -210,11 +224,17 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
                 onClick={function returnToDraft() { setNotice(''); }}>{text.returnToApplication}</a></p>}
         </> : receipt ? <>
             <div className="application-received"><h2>{text.applicationReceived}</h2><p>{text.reference}: <strong>{receipt.submission.reference}</strong></p></div>
+            <section className="application-email-status" aria-labelledby="acknowledgement-email-heading">
+                <h2 id="acknowledgement-email-heading">{text.acknowledgementEmail}</h2>
+                <p role="status">{text[`email_${emailStatus}`] || text.email_uncertain}</p>
+                {emailStatus !== 'accepted' && <button type="button" className="secondary-button" disabled={busy}
+                    onClick={checkEmailStatus}>{text.checkEmailStatus}</button>}
+            </section>
             <div className="application-columns"><div>
                 <h2>{text.personalInformation}</h2><PersonalDetails personal={receipt.submission} text={text} />
                 <h2>{text.courseAnswers}</h2><Answers courses={receipt.registrations.map(function course(item) { return { ...item, id: item.course_id }; })}
                     answers={Object.fromEntries(receipt.registrations.map(function answer(item) { return [item.course_id, item.answers]; }))} text={text} language={language} />
-                <p>{text.noEmailSent}</p><p>{text.receiptRecovery}</p>
+                <p>{text.receiptRecovery}</p>
                 <button type="button" disabled={busy} onClick={startNew}>{text.newApplication}</button>
             </div><Summary definition={{ courses: receipt.registrations.map(function course(item) { return { ...item, id: item.course_id }; }), total: receipt.submission.total }} text={text} language={language} /></div>
         </> : <>
