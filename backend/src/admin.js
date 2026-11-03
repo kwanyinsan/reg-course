@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('./db');
 const acknowledgement = require('./acknowledgement');
+const payments = require('./payment');
 const { courseSummary, publicInformation } = require('./courses');
 const questionRoutes = require('./questions');
 const { questionLockReason } = require('./question-definition');
@@ -132,7 +133,7 @@ router.get('/registrations', async function listRegistrations(req, res, next) {
     if (filters.course_id) addCondition(conditions, values, 'r.course_id', Number(filters.course_id));
     if (filters.state) addCondition(conditions, values, 'r.state', filters.state);
     if (filters.payment_state === 'none') conditions.push('p.id IS NULL');
-    else if (filters.payment_state) addCondition(conditions, values, 'p.state', filters.payment_state);
+    else if (filters.payment_state) addCondition(conditions, values, `(${payments.stateSql})`, filters.payment_state);
     if (filters.q) {
         values.push(searchValue(filters.q));
         const value = `$${values.length}`;
@@ -148,7 +149,9 @@ router.get('/registrations', async function listRegistrations(req, res, next) {
             const result = await readPage(`SELECT COUNT(DISTINCT r.submission_id)::int AS total${from}${where}`,
                 `WITH matching AS (SELECT r.id, r.submission_id${from}${where})
                  SELECT s.id, s.reference, s.full_name, s.email, s.phone, s.total::text, s.created_at,
-                        s.is_cancelled, p.state AS payment_state,
+                        s.is_cancelled, ${payments.stateSql} AS payment_state,
+                        ${payments.unavailableSql} AS payment_unavailable_reason,
+                        p.reference AS payment_reference,p.amount::text AS payment_amount,p.due_at AS payment_due_at,p.paid_at,
                         (SELECT jsonb_agg(jsonb_build_object('id', r.id, 'course_id', r.course_id,
                                 'code', c.code, 'title', c.title, 'fee', r.fee::text,
                                 'created_at', r.created_at, 'state', r.state,
@@ -163,7 +166,9 @@ router.get('/registrations', async function listRegistrations(req, res, next) {
         }
         const result = await readPage(`SELECT COUNT(*)::int AS total${from}${where}`,
             `SELECT r.id, r.submission_id, s.reference AS submission_reference, s.full_name, s.email, s.phone,
-                    r.course_id, c.code, c.title, r.fee, r.created_at, r.state, p.state AS payment_state
+                    r.course_id, c.code, c.title, r.fee, r.created_at, r.state, ${payments.stateSql} AS payment_state,
+                    ${payments.unavailableSql} AS payment_unavailable_reason,
+                    s.total::text AS submission_total
              ${from}${where} ORDER BY r.created_at DESC, r.id DESC`, values, filters.page);
         res.json({ registrations: result.records, page: result.page, page_size: result.page_size, total: result.total });
     } catch (error) { next(error); }
@@ -196,6 +201,7 @@ router.get('/registrations/:id', async function registrationDetails(req, res, ne
                  WHERE r.id = $1`, [id]);
             if (!record.rowCount) return null;
             const details = record.rows[0];
+            if (details.payment) details.payment = await payments.forSubmission(client, details.submission.id);
             const related = await client.query(
                 `SELECT r.id, r.course_id, c.code, c.title, r.fee, r.state FROM registration r
                  JOIN course c ON c.id = r.course_id WHERE r.submission_id = $1 ORDER BY r.id`,

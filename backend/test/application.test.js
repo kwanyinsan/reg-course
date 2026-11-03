@@ -7,6 +7,7 @@ const pool = require('../src/db');
 const { validateApplication } = require('../src/application-validation');
 const acknowledgement = require('../src/acknowledgement');
 const mail = require('../src/mail');
+process.env.PAYMENT_LINK_SECRET = require('node:crypto').randomBytes(32).toString('base64url');
 
 test('public application transactions, validation and private recovery', async function integration() {
     const schema = `registration_test_${process.pid}_${Date.now()}`;
@@ -16,6 +17,7 @@ test('public application transactions, validation and private recovery', async f
     let store;
     let sent = 0;
     let failMail = false;
+    const emailLinks = [];
     try {
         await pool.query(`CREATE SCHEMA "${schema}"`);
         await pool.query(fs.readFileSync(path.join(__dirname, '../../database/schema.sql'), 'utf8'));
@@ -27,6 +29,7 @@ test('public application transactions, validation and private recovery', async f
             const reference = message.subject.split(' — ')[1];
             const visible = await pool.query('SELECT id FROM submission WHERE reference=$1', [reference]);
             assert.equal(visible.rowCount, 1, 'SMTP must run after the submission is visible outside its transaction');
+            emailLinks.push(message.text.match(/http[^\s]+\/#payment\/[^\s]+/)?.[0] || null);
             if (failMail) throw Object.assign(new Error('Do not log this private SMTP diagnostic.'), { code: 'EAUTH' });
             return { accepted: [message.to], messageId: 'application-test-message' };
         };
@@ -39,7 +42,7 @@ test('public application transactions, validation and private recovery', async f
         const ids = [];
         for (let index = 0; index < 2; index++) {
             const result = await pool.query(`INSERT INTO course (code,title,short_description,long_description,mode,sessions,fee,registration_opens_at,registration_closes_at,payment_deadline,attendance_requirement_percent,state)
-                VALUES ($1,'{"en":"Test course"}','{"en":"Short"}','{"en":"Long"}','in_person',$2,$3,NOW()-INTERVAL '1 day',NOW()+INTERVAL '1 day',NOW()+INTERVAL '7 days',100,'draft') RETURNING id`, [`TEST-${index}`, JSON.stringify(sessions), index * 100]);
+                VALUES ($1,'{"en":"Test course"}','{"en":"Short"}','{"en":"Long"}','in_person',$2,$3,NOW()-INTERVAL '1 day',NOW()+INTERVAL '1 day',NOW()+($4::int * INTERVAL '1 day'),100,'draft') RETURNING id`, [`TEST-${index}`, JSON.stringify(sessions), index * 100, 3 + index]);
             const id = result.rows[0].id;
             ids.push(id);
             await pool.query('INSERT INTO question (course_id,definition) VALUES ($1,$2)', [id, questions]);
@@ -91,8 +94,14 @@ test('public application transactions, validation and private recovery', async f
         assert.equal(Number(results[0].data.receipt.submission.total), 100);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 1);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM registration')).rows[0].n, 2);
-        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 0);
-        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM log')).rows[0].n, 6);
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 1);
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM log')).rows[0].n, 7);
+        const payment = results[0].data.receipt.payment;
+        assert.equal(Number(payment.amount), 100);
+        assert.equal(payment.state, 'pending');
+        assert.equal(payment.due_at, prepared.data.definition.payment_deadline);
+        assert.equal(payment.due_at, prepared.data.definition.courses[0].payment_deadline, 'Free courses also participate in the earliest deadline');
+        assert.equal(payment.access_url, emailLinks[0], 'Acknowledgement and email must use the same protected URL');
         assert.equal(sent, 1);
         assert.equal((await call('/result', undefined, prepared.cookie)).data.receipt.acknowledgement_email.status, 'accepted');
         const reordered = structuredClone(body);
@@ -112,6 +121,9 @@ test('public application transactions, validation and private recovery', async f
         // A valid structural snapshot difference tests re-review without mutating a published form.
         await pool.query("UPDATE session SET sess=jsonb_set(sess::jsonb,'{definition,total}','999'::jsonb)::json WHERE sid=$1", ['application:' + stale.cookie.split('=')[1]]);
         assert.equal((await call('', payload(stale), stale.cookie)).data.code, 'definition_changed');
+        const deadlineChanged = await prepare();
+        await pool.query("UPDATE session SET sess=jsonb_set(sess::jsonb,'{definition,payment_deadline}',to_jsonb('2028-01-01T00:00:00.000Z'::text))::json WHERE sid=$1", ['application:' + deadlineChanged.cookie.split('=')[1]]);
+        assert.equal((await call('', payload(deadlineChanged), deadlineChanged.cookie)).data.code, 'definition_changed');
         const unavailable = await prepare();
         await pool.query("UPDATE course SET state='archived' WHERE id=$1", [ids[1]]);
         assert.equal((await call('', payload(unavailable), unavailable.cookie)).data.code, 'course_unavailable');
@@ -121,13 +133,16 @@ test('public application transactions, validation and private recovery', async f
         await pool.query('CREATE TRIGGER fail_test_log BEFORE INSERT ON log FOR EACH ROW EXECUTE FUNCTION fail_test_log()');
         assert.equal((await call('', payload(failed), failed.cookie)).status, 500);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 1);
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 1, 'Failed application must roll its payment back');
         assert.equal((await call('/result', undefined, failed.cookie)).status, 404);
         assert.equal(sent, 1, 'Rolled-back and invalid applications must not send mail');
         await pool.query('DROP TRIGGER fail_test_log ON log');
         const free = await prepare([ids[0]]);
         assert.equal((await call('', payload(free), free.cookie)).status, 201);
         assert.equal(Number((await call('/result', undefined, free.cookie)).data.receipt.submission.total), 0);
-        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 0);
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 1);
+        assert.equal((await call('/result', undefined, free.cookie)).data.receipt.payment.state, 'not_required');
+        assert.equal(emailLinks[1], null);
         await call('/new', {}, free.cookie);
         assert.equal((await call('/result', undefined, free.cookie)).status, 401);
         assert.equal(sent, 2, 'Repeated submissions and acknowledgement recovery must not send again');
@@ -140,7 +155,8 @@ test('public application transactions, validation and private recovery', async f
         assert.equal((await call('', payload(emailFailure), emailFailure.cookie)).status, 200);
         assert.equal(sent, 3);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 3);
-        console.log('Verified: application validation, atomic rollback, post-commit mail, concurrent retry, private recovery, expiry, SMTP failure preserving registrations and no payment records.');
+        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 2);
+        console.log('Verified: transactional combined payments, earliest reviewed deadline, zero totals, matching acknowledgement/email links, retry recovery and post-commit SMTP failure handling.');
     } finally {
         if (server) await new Promise(function close(resolve) { server.close(resolve); });
         if (store) store.close();

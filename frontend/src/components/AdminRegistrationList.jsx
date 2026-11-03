@@ -62,7 +62,13 @@ function AdminRegistrationList({ text, language, filters, onFilter, onSessionExp
                                     <div><dt>{text.registrations}</dt><dd>{submission.registrations.length}</dd></div>
                                     {filtered && <div><dt>{text.matchingRegistrations}</dt><dd>{submission.registrations.filter(function matches(record) { return record.matches_filters; }).length}</dd></div>}
                                     <div><dt>{text.submissionTotal}</dt><dd>{formatMoney(feeCents(submission.total), language)}</dd></div>
-                                    <div><dt>{text.paymentStatus}</dt><dd>{text[`payment_${submission.payment_state || 'none'}`]}</dd></div>
+                                    <div><dt>{text.paymentStatus}</dt><dd>{text[`payment_${submission.payment_unavailable_reason ? 'unavailable' : submission.payment_state || (Number(submission.total) === 0 ? 'not_required' : 'none')}`]}</dd></div>
+                                    {submission.payment_reference && <>
+                                        <div><dt>{text.paymentReference}</dt><dd>{submission.payment_reference}</dd></div>
+                                        <div><dt>{text.amount}</dt><dd>{formatMoney(feeCents(submission.payment_amount), language)}</dd></div>
+                                        <div><dt>{text.paymentDeadline}</dt><dd>{formatCourseDate(submission.payment_due_at, language, true)}</dd></div>
+                                        {submission.paid_at && <div><dt>{text.paidAt}</dt><dd>{formatCourseDate(submission.paid_at, language, true)}</dd></div>}
+                                    </>}
                                 </dl>
                             </header>
                             <AdminRegistrationTable records={submission.registrations} text={text} language={language} grouped filtered={filtered}

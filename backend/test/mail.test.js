@@ -7,6 +7,8 @@ const nodemailer = require('nodemailer');
 const pool = require('../src/db');
 const acknowledgement = require('../src/acknowledgement');
 const { mailFailure } = require('../src/mail');
+const payments = require('../src/payment');
+process.env.PAYMENT_LINK_SECRET = require('node:crypto').randomBytes(32).toString('base64url');
 
 test('combined English acknowledgements, controlled SMTP outcomes and safe retries', async function mailTest() {
     const schema = `mail_test_${process.pid}_${Date.now()}`;
@@ -22,6 +24,14 @@ test('combined English acknowledgements, controlled SMTP outcomes and safe retri
         assert.equal(await acknowledgement.installTemplate(), 1);
         assert.equal(await acknowledgement.installTemplate(), 0);
         const { rows: [template] } = await pool.query('SELECT id,subject,body FROM email');
+        await pool.query('UPDATE email SET body=$1,subject=$2 WHERE id=$3', [template.body.replace('\n\n{{payment_action}}', ''), 'Custom subject', template.id]);
+        assert.equal(await acknowledgement.updatePaymentTemplate(), 1);
+        assert.equal(await acknowledgement.updatePaymentTemplate(), 0);
+        assert.equal((await pool.query('SELECT subject FROM email WHERE id=$1', [template.id])).rows[0].subject, 'Custom subject');
+        await pool.query('UPDATE email SET body=$1 WHERE id=$2', ['Custom wording\n' + template.body.replace('\n\n{{payment_action}}', ''), template.id]);
+        await assert.rejects(acknowledgement.updatePaymentTemplate());
+        assert.match((await pool.query('SELECT body FROM email WHERE id=$1', [template.id])).rows[0].body, /^Custom wording/);
+        await pool.query('UPDATE email SET body=$1,subject=$2 WHERE id=$3', [template.body, template.subject, template.id]);
         const sessions = [{ id: 's1', starts_at: '2027-01-01T10:00:00+08:00', ends_at: '2027-01-01T12:00:00+08:00', topic: { en: 'Session' }, mode: 'in_person' }];
         const courses = [];
         for (const [index, fee] of [100, 30].entries()) {
@@ -38,11 +48,13 @@ test('combined English acknowledgements, controlled SMTP outcomes and safe retri
                 (reference,salutation,full_name,organisation,job_title,phone,email,consent_accepted,total)
                 VALUES($1,'Ms',$2,'QA','Tester','12345678','sink@example.invalid',true,130) RETURNING *`, [reference, 'Ada <img src=x onerror=bad()> & "Test"']);
             for (const course of courses) await pool.query('INSERT INTO registration(submission_id,course_id,fee) VALUES($1,$2,$3)', [submission.id, course.id, course.fee]);
+            await payments.createPending(pool, submission.id);
             await acknowledgement.request(pool, submission.id);
             return submission;
         }
         const first = await create('ACK-ENGLISH');
-        const rendered = acknowledgement.render(template, first, courses);
+        const payment = await payments.forSubmission(pool, first.id, true);
+        const rendered = acknowledgement.render(template, first, courses, payment);
         assert.equal(rendered.subject, 'Application acknowledgement — ACK-ENGLISH');
         assert.match(rendered.text, /HKD\s*130/);
         assert.match(rendered.text, /HKD\s*100/);
@@ -52,8 +64,17 @@ test('combined English acknowledgements, controlled SMTP outcomes and safe retri
         assert.match(rendered.html, /lang="en"/);
         assert.match(rendered.html, /&lt;img/);
         assert.match(rendered.html, /&lt;b&gt;A &amp; B&lt;\/b&gt;/);
-        assert.doesNotMatch(rendered.html, /<img|<script|href=|<button/i);
-        assert.match(rendered.text, /no payment deadline has been assigned/);
+        assert.doesNotMatch(rendered.html, /<img|<script|<button/i);
+        assert.ok(rendered.text.includes(payment.access_url));
+        assert.ok(rendered.html.includes(`href="${payment.access_url}"`));
+        assert.match(rendered.text, /payment link expires at this deadline/);
+        assert.doesNotMatch(rendered.text, /not available yet|no payment deadline has been assigned/);
+        assert.doesNotMatch(acknowledgement.render(template, { ...first, total: '0' }, courses, payment).html, /href=/);
+        assert.match(acknowledgement.render(template, first, courses).text, /not available for this application/);
+        const paidExpired = acknowledgement.render(template, first, courses, { ...payment, state: 'paid', access_url: null });
+        assert.match(paidExpired.text, /payment link has expired/);
+        assert.doesNotMatch(paidExpired.text, /link below/);
+        assert.throws(function unsafeLink() { acknowledgement.render(template, first, courses, { ...payment, access_url: 'javascript:alert(1)' }); }, { code: 'MAIL_TEMPLATE' });
         assert.match(acknowledgement.render(template, { ...first, total: '0' }, courses).text, /No payment is required/);
         assert.throws(function unknownPlaceholder() { acknowledgement.render({ ...template, body: '{{unknown}}' }, first, courses); }, { code: 'MAIL_TEMPLATE' });
 
@@ -121,6 +142,7 @@ test('combined English acknowledgements, controlled SMTP outcomes and safe retri
         const logs = await pool.query('SELECT details FROM log');
         assert.equal(JSON.stringify(logs.rows).includes(privateDiagnostic), false);
         assert.equal(JSON.stringify(logs.rows).includes('Dear Ada'), false);
+        assert.equal(JSON.stringify(logs.rows).includes(payment.access_url.split('/#payment/')[1]), false);
         assert.equal(mailFailure({ code: 'ETIMEDOUT', command: 'DATA' }).status, 'uncertain');
 
         const unlogged = await create('ACK-LOG-FAILURE');
@@ -133,7 +155,7 @@ test('combined English acknowledgements, controlled SMTP outcomes and safe retri
         await acknowledgement.send(unlogged.id, { retry: true, sendMessage });
         assert.equal(messages.length, 5);
         await pool.query('DROP TRIGGER fail_outcome ON log');
-        assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 0);
+        assert.equal((await pool.query("SELECT COUNT(*)::int n FROM payment WHERE state='pending'")).rows[0].n, 5);
         console.log('Verified: English combined content, dates/fees, HTML escaping, controlled SMTP acceptance/rejection/disconnect, safe logging, concurrent send protection, manual retry and uncertain-outcome protection.');
     } finally {
         for (const socket of sockets) socket.destroy();

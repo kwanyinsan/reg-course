@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import QuestionFields from './QuestionFields';
-import { courseText, feeCents, formatMoney } from '../course-utils';
+import { courseText, feeCents, formatCourseDate, formatMoney } from '../course-utils';
 
 const fields = { full_name: ['fullName', 150, 'name'], organisation: ['organisation', 200, 'organization'],
     job_title: ['jobTitle', 150, 'organization-title'], phone: ['phone', 8, 'tel-national'], email: ['email', 254, 'email'] };
@@ -18,14 +18,25 @@ async function request(path, body, timeout = 15000) {
     return data;
 }
 
-function Summary({ definition, text, language }) {
+function Summary({ definition, text, language, payment }) {
     return <aside className="application-summary" aria-labelledby="application-summary-heading">
         <h2 id="application-summary-heading">{text.applicationSummary}</h2>
         <ul>{definition.courses.map(function course(item) { return <li key={item.id}>
             <span>{item.code}<br />{courseText(item.title, language)}</span><strong>{formatMoney(feeCents(item.fee), language)}</strong>
         </li>; })}</ul>
         <p className="selection-total">{text.total}: {formatMoney(feeCents(definition.total), language)}</p>
-        <p>{Number(definition.total) === 0 ? text.freeApplication : text.paymentPlaceholder}</p>
+        {Number(definition.total) === 0 ? <p>{text.freeApplication}</p> : payment ? <section className="acknowledgement-payment" aria-labelledby="application-payment-heading">
+            <h3 id="application-payment-heading">{text.combinedPayment}</h3>
+            <p role="status">{text[`payment_${payment.unavailable_reason ? 'unavailable' : payment.state}`]}</p>
+            {payment.reference && <p>{text.paymentReference}: <strong>{payment.reference}</strong></p>}
+            {payment.due_at && <p>{text.paymentDeadline}: {formatCourseDate(payment.due_at, language, true)}<br />{text.hongKongTime}</p>}
+            {payment.paid_at && <p>{text.paidAt}: {formatCourseDate(payment.paid_at, language, true)}</p>}
+            {payment.state === 'expired' && <p>{text.paymentExpiredNote}</p>}
+            {payment.state === 'cancelled' && <p>{text.paymentCancelledNote}</p>}
+            {payment.state === 'unavailable' && <p>{text.paymentNoRecord}</p>}
+            {payment.unavailable_reason && <p>{payment.unavailable_reason === 'course_cancelled' ? text.paymentCourseCancelled : text.paymentAmountMismatch}</p>}
+            {payment.access_url && <><p>{text.paymentLinkLifetime}</p><a className="button-link" href={payment.access_url}>{text.viewPayment}</a></>}
+        </section> : <><p>{text.paymentReviewNote}</p><p>{text.paymentDeadline}: {formatCourseDate(definition.payment_deadline, language, true)}<br />{text.hongKongTime}</p></>}
     </aside>;
 }
 
@@ -83,6 +94,21 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
     const [errors, setErrors] = useState([]);
     const [reload, setReload] = useState(0);
     const pending = useRef(false);
+    const receiptReference = draft?.receipt?.submission.reference;
+
+    useEffect(function refreshReceipt() {
+        if (!receiptReference) return;
+        let ignore = false;
+        async function refresh() {
+            try {
+                const data = await request('/result');
+                if (!ignore && data.receipt.submission.reference === receiptReference) onDraftChange({ receipt: data.receipt });
+            } catch { /* The saved receipt stays visible when recovery is temporarily unavailable. */ }
+        }
+        refresh();
+        window.addEventListener('focus', refresh);
+        return function stopRefreshing() { ignore = true; window.removeEventListener('focus', refresh); };
+    }, [receiptReference, onDraftChange]);
 
     useEffect(function focusErrors() {
         if (errors.length) document.getElementById('application-errors')?.focus();
@@ -189,16 +215,16 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
         finally { pending.current = false; setBusy(false); }
     }
 
-    async function checkEmailStatus() {
+    async function checkStatus() {
         if (pending.current) return;
         pending.current = true;
         setBusy(true);
         try {
             const result = await request('/result');
             onDraftChange({ receipt: result.receipt });
-            onNotice('emailStatusChecked');
+            onNotice('applicationStatusChecked');
         } catch {
-            onNotice('emailCheckError', 'error');
+            onNotice('applicationCheckError', 'error');
         } finally { pending.current = false; setBusy(false); }
     }
 
@@ -227,8 +253,8 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
             <section className="application-email-status" aria-labelledby="acknowledgement-email-heading">
                 <h2 id="acknowledgement-email-heading">{text.acknowledgementEmail}</h2>
                 <p role="status">{text[`email_${emailStatus}`] || text.email_uncertain}</p>
-                {emailStatus !== 'accepted' && <button type="button" className="secondary-button" disabled={busy}
-                    onClick={checkEmailStatus}>{text.checkEmailStatus}</button>}
+                <button type="button" className="secondary-button" disabled={busy}
+                    onClick={checkStatus}>{text.checkStatus}</button>
             </section>
             <div className="application-columns"><div>
                 <h2>{text.personalInformation}</h2><PersonalDetails personal={receipt.submission} text={text} />
@@ -236,7 +262,7 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
                     answers={Object.fromEntries(receipt.registrations.map(function answer(item) { return [item.course_id, item.answers]; }))} text={text} language={language} />
                 <p>{text.receiptRecovery}</p>
                 <button type="button" disabled={busy} onClick={startNew}>{text.newApplication}</button>
-            </div><Summary definition={{ courses: receipt.registrations.map(function course(item) { return { ...item, id: item.course_id }; }), total: receipt.submission.total }} text={text} language={language} /></div>
+            </div><Summary definition={{ courses: receipt.registrations.map(function course(item) { return { ...item, id: item.course_id }; }), total: receipt.submission.total }} payment={receipt.payment} text={text} language={language} /></div>
         </> : <>
             <p>{reviewPage ? text.reviewBeforeSubmit : text.applicationIntro}</p>
             {!reviewPage && <p>{text.unsavedApplication}</p>}

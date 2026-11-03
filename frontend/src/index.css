@@ -9,6 +9,32 @@
     --border: #d8dde5;
 }
 
+.button-link { display: inline-block; padding: 10px 20px; background: var(--teal); color: #fff; text-decoration: none; font-weight: 700; }
+.button-link:hover { background: var(--navy); color: #fff; }
+.payment-references { display: flex; flex-wrap: wrap; gap: 12px 36px; margin-block: 24px; }
+.payment-references dt { color: var(--navy); font-weight: 700; }
+.payment-references dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.payment-columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 36px; align-items: start; }
+.payment-columns > * { min-width: 0; }
+.payment-courses { list-style: none; margin: 0; padding: 0; }
+.payment-courses li { display: flex; gap: 20px; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid var(--border); }
+.payment-courses h3 { margin: 0 0 8px; font-size: 20px; overflow-wrap: anywhere; }
+.payment-courses p { margin: 4px 0; }
+.payment-courses strong { white-space: nowrap; }
+.payment-summary .payment-total { color: var(--navy); font-size: 28px; font-weight: 700; }
+.payment-summary .admin-fields > div { display: block; padding: 14px 0; }
+.payment-summary .admin-fields dd { margin-top: 6px; }
+.payment-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.acknowledgement-payment { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 8px; }
+.acknowledgement-payment strong { white-space: normal; }
+@media (max-width: 900px) { .payment-columns { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+@media (max-width: 520px) {
+    .payment-courses li { flex-direction: column; gap: 8px; }
+    .payment-references { flex-direction: column; }
+    .payment-actions { flex-direction: column-reverse; }
+    .payment-actions button, .acknowledgement-payment .button-link { width: 100%; text-align: center; }
+}
+
 * {
     box-sizing: border-box;
 }

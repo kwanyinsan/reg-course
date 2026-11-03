@@ -67,7 +67,10 @@ function AdminRegistrationDetails({ id, text, language, onSessionExpired }) {
             </section>
             <section className="course-section"><h2>{text.combinedPayment}</h2>
                 <p>{text.combinedPaymentExplanation}</p>
-                {!payment ? <p>{text.payment_none}</p> : <dl className="admin-fields">{field(text.reference, payment.reference)}{field(text.amount, money(payment.amount))}{field(text.paymentStatus, text[`payment_${payment.state}`])}{field(text.paymentDeadline, date(payment.due_at))}{field(text.paidAt, date(payment.paid_at))}</dl>}
+                {!payment ? <p>{Number(submission.total) === 0 ? text.payment_not_required : text.payment_none}</p> : <>
+                    <dl className="admin-fields">{field(text.reference, payment.reference)}{field(text.amount, money(payment.amount))}{field(text.paymentStatus, text[`payment_${payment.unavailable_reason ? 'unavailable' : payment.state}`])}{field(text.paymentDeadline, date(payment.due_at))}{field(text.paidAt, date(payment.paid_at))}</dl>
+                    {payment.unavailable_reason && <p>{payment.unavailable_reason === 'course_cancelled' ? text.paymentCourseCancelled : text.paymentAmountMismatch}</p>}
+                </>}
             </section>
             {(registration.state === 'cancelled' || submission.is_cancelled) && <section className="course-section"><h2>{text.cancellation}</h2>
                 {registration.state === 'cancelled' && <><h3>{text.registration}</h3><dl className="admin-fields">{field(text.cancelledAt, date(registration.cancelled_at))}{field(text.cancelledBy, registration.cancelled_by)}{field(text.cancellationReason, registration.cancellation_reason)}</dl></>}

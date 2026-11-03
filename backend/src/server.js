@@ -14,6 +14,7 @@ const { requireTrustedRequest, limitLoginAttempts } = require('./security');
 const { router: courseRoutes } = require('./courses');
 const adminRoutes = require('./admin');
 const applicationRoutes = require('./application');
+const paymentRoutes = require('./payment').router;
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -31,6 +32,7 @@ app.use('/courses', courseRoutes);
 app.use(requireTrustedRequest);
 app.use('/login', limitLoginAttempts);
 app.use('/application', express.json({ limit: '256kb', strict: false }), applicationRoutes);
+app.use('/payment', express.json({ limit: '1kb', strict: false }), paymentRoutes);
 app.put('/admin/courses/:id/questions', express.json({ limit: '256kb', strict: false }));
 app.use(express.json({ limit: '16kb', strict: false }));
 app.use(sessionMiddleware);

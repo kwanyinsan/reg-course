@@ -6,9 +6,12 @@ import CourseList from './components/CourseList';
 import CourseDetails from './components/CourseDetails';
 import SelectedCourses from './components/SelectedCourses';
 import Registration from './components/Registration';
+import Payment from './components/Payment';
 import Notification from './components/Notification';
 import useNotification from './use-notification';
 import applicationText from './application-text';
+import paymentText from './payment-text';
+import { capturePaymentLink } from './payment-link';
 import { courseText, feeCents, formatMoney, readSelectedIds } from './course-utils';
 import translations from './translations';
 import { questionDraftDirty } from './question-utils';
@@ -24,6 +27,7 @@ function readLanguage() {
 }
 
 function readPage() {
+    if (/^#payment(?:\/|$)/.test(window.location.hash)) return `payment/${capturePaymentLink()}`;
     const page = window.location.hash.slice(1).replace(/^staff(?=\/|$)/, 'admin');
     if (!page || page === 'home') return 'courses';
     if (['courses', 'selected', 'admin', 'registration', 'registration/review', 'registration/acknowledgement'].includes(page)) return page;
@@ -82,8 +86,9 @@ function App() {
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language] };
+    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language] };
     const applicationPage = page === 'registration' || page.startsWith('registration/');
+    const paymentPage = page.startsWith('payment/');
     const applicationCompleted = useCallback(function clearSubmittedSelection() {
         setSelection({ ids: [], notice: '' });
     }, []);
@@ -132,6 +137,7 @@ function App() {
     if (adminPage) title = !admin ? text.adminLogin : page.endsWith('/questions') ? text.registrationQuestions : page.startsWith('admin/registrations/') ? text.registrationDetails
         : page === 'admin/registrations' ? text.registrations : page.startsWith('admin/courses/') ? text.courseWorkspace : text.adminCourses;
     else if (applicationPage) title = applicationDraft?.receipt || page.endsWith('/acknowledgement') ? text.acknowledgement : page.endsWith('/review') ? text.reviewApplication : text.applicationTitle;
+    else if (paymentPage) title = text.paymentTitle;
     else if (page === 'selected') title = text.selectedCourses;
     else if (detailId) title = courseText(currentCourse?.title, language) || text.courseDetails;
     else if (page === 'notFound') title = text.pageNotFound;
@@ -154,11 +160,15 @@ function App() {
             });
         }
         window.addEventListener('hashchange', changePage);
+        window.addEventListener('popstate', changePage);
         // Old bookmarks resolve to the canonical admin URL without adding a history entry.
         if (/^#staff(?:\/|$)/.test(window.location.hash)) {
             window.location.replace(window.location.hash.replace(/^#staff/, '#admin'));
         }
-        return function stopWatching() { window.removeEventListener('hashchange', changePage); };
+        return function stopWatching() {
+            window.removeEventListener('hashchange', changePage);
+            window.removeEventListener('popstate', changePage);
+        };
     }, []);
 
     useEffect(function saveSelection() {
@@ -186,7 +196,7 @@ function App() {
     }, [dirtyQuestions, applicationDraft]);
 
     useEffect(function loadPublicCourses() {
-        if (page === 'admin' || page.startsWith('admin/') || page.startsWith('registration') || page === 'notFound') return;
+        if (page === 'admin' || page.startsWith('admin/') || page.startsWith('registration') || page.startsWith('payment/') || page === 'notFound') return;
         let ignore = false;
         const version = ++catalogVersion.current;
         async function loadCourses() {
@@ -423,7 +433,9 @@ function App() {
             <Notification notice={notification} text={text} />
             {!adminPage ? (
                 <>
-                    {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : applicationPage ? (
+                    {page === 'notFound' ? <a href="#courses">{text.backToCourses}</a> : paymentPage ? (
+                        <Payment key={page} accessKey={page.split('/')[1]} text={text} language={language} onNotice={notify} />
+                    ) : applicationPage ? (
                         <Registration page={page} text={text} language={language} initialSelectedIds={selection.ids}
                             draft={applicationDraft} onDraftChange={setApplicationDraft} onCompleted={applicationCompleted} onNotice={notify} />
                     ) : (

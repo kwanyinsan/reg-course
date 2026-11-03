@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const pool = require('./db');
 const writeLog = require('./log');
 const mail = require('./mail');
+const payments = require('./payment');
 
 const templateEvent = 'application.acknowledgement';
 const logPrefix = 'acknowledgement.';
@@ -22,6 +23,8 @@ Total course fees: {{combined_total}}
 All session dates and times are shown in Hong Kong time (UTC+8).
 
 {{payment_note}}
+
+{{payment_action}}
 
 Please keep this email and your application reference for your records.
 
@@ -46,7 +49,28 @@ function sessionDate(session) {
     return `${date.format(start)}, ${time.format(start)} – ${date.format(start) === date.format(end) ? '' : date.format(end) + ', '}${time.format(end)}`;
 }
 
-function render(template, submission, courses) {
+function render(template, submission, courses, payment = null) {
+    let paymentUrl = payment?.access_url || '';
+    if (paymentUrl) {
+        let url;
+        try { url = new URL(paymentUrl); } catch { /* Reject unexpected links below. */ }
+        if (!url || url.origin !== process.env.APP_ORIGIN || url.username || url.password || url.pathname !== '/' || url.search ||
+            !/^#payment\/[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(url.hash)) {
+            throw Object.assign(new Error('Invalid acknowledgement payment link.'), { code: 'MAIL_TEMPLATE' });
+        }
+    }
+    let paymentNote = 'Online payment is not available for this application.';
+    if (Number(submission.total) === 0) paymentNote = 'No payment is required for your selected courses.';
+    else if (payment?.state === 'pending' && payment.can_pay) {
+        const deadline = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Hong_Kong', year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(payment.due_at));
+        paymentNote = `Please complete the combined payment before ${deadline} (Hong Kong time, UTC+8). The payment link expires at this deadline.`;
+    } else if (payment?.state === 'paid') paymentNote = paymentUrl ? 'You can view the existing payment result using the link below.'
+        : 'The website has an existing payment record for this application. The payment link has expired.';
+    else if (payment?.state === 'expired') paymentNote = 'The payment deadline has passed. Online payment is no longer available.';
+    else if (payment?.state === 'cancelled') paymentNote = 'Payment is unavailable because this application or payment was cancelled.';
+    if (Number(submission.total) === 0) paymentUrl = '';
+    const actionNote = 'Opening the payment page does not record a payment. Review the details and select Pay when available. This action records the payment; no money is transferred.';
     const textCourses = courses.map(function course(item) {
         return `${item.code} — ${item.title.en}\nSession date(s): ${item.sessions.map(sessionDate).join('; ')}\nFee: ${money(item.fee)}`;
     }).join('\n\n');
@@ -59,8 +83,8 @@ function render(template, submission, courses) {
         application_reference: submission.reference,
         courses: textCourses,
         combined_total: money(submission.total),
-        payment_note: Number(submission.total) === 0 ? 'No payment is required for your selected courses.'
-            : 'Online payment instructions are not available yet. No payment has been taken through this website and no payment deadline has been assigned. Keep your application reference for the next stage.',
+        payment_note: paymentNote,
+        payment_action: paymentUrl ? `View payment\n${paymentUrl}\n\n${actionNote}` : '',
     };
     function replace(text, html = false) {
         return text.replace(/{{([^{}]+)}}/g, function placeholder(match, key) {
@@ -72,6 +96,8 @@ function render(template, submission, courses) {
     const text = replace(template.body);
     const paragraphs = template.body.split(/\n\s*\n/).map(function paragraph(part) {
         if (part.trim() === '{{courses}}') return table;
+        if (part.trim() === '{{payment_action}}') return paymentUrl
+            ? `<p style="margin:0 0 18px"><a href="${escapeHtml(paymentUrl)}" style="display:inline-block;background:#287d79;color:#fff;padding:12px 20px;text-decoration:none;font-weight:bold">View payment</a></p><p style="margin:0 0 18px;line-height:1.6">${actionNote}</p>` : '';
         if (part.trim() === 'Total course fees: {{combined_total}}') return '';
         return `<p style="margin:0 0 18px;line-height:1.6">${replace(escapeHtml(part), true).replace(/\n/g, '<br>')}</p>`;
     }).join('');
@@ -100,12 +126,31 @@ async function installTemplate() {
     return result.rowCount;
 }
 
+async function updatePaymentTemplate() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await client.query('SELECT id,body FROM email WHERE course_id IS NULL AND event=$1 FOR UPDATE', [templateEvent]);
+        const template = result.rows[0];
+        if (!template) throw new Error('The shared acknowledgement template is missing.');
+        if (template.body === body) { await client.query('COMMIT'); return 0; }
+        const previous = body.replace('\n\n{{payment_action}}', '');
+        if (template.body !== previous) throw new Error('The shared acknowledgement template changed and needs review.');
+        const updated = await client.query('UPDATE email SET body=$2 WHERE id=$1 AND body=$3 RETURNING id', [template.id, body, previous]);
+        if (updated.rowCount !== 1) throw new Error('The shared acknowledgement template changed during its update.');
+        await client.query('COMMIT');
+        return updated.rowCount;
+    } catch (error) { await client.query('ROLLBACK'); throw error; }
+    finally { client.release(); }
+}
+
 async function send(submissionId, options = {}) {
     const client = await pool.connect();
     let attempt;
     let submission;
     let courses;
     let template;
+    let payment;
     try {
         await client.query('BEGIN');
         await client.query("SET LOCAL lock_timeout='5s'");
@@ -118,6 +163,7 @@ async function send(submissionId, options = {}) {
         const found = await client.query('SELECT id,reference,full_name,email,total FROM submission WHERE id=$1', [submissionId]);
         if (!found.rowCount) throw new Error('Application not found.');
         submission = found.rows[0];
+        payment = await payments.forSubmission(client, submissionId, true);
         const selected = await client.query(
             `SELECT c.code,c.title,c.sessions,r.fee FROM registration r JOIN course c ON c.id=r.course_id
              WHERE r.submission_id=$1 ORDER BY r.course_id`, [submissionId]);
@@ -136,7 +182,7 @@ async function send(submissionId, options = {}) {
     let outcome;
     try {
         if (!template) throw Object.assign(new Error('Acknowledgement template is missing.'), { code: 'MAIL_TEMPLATE' });
-        const message = render(template, submission, courses);
+        const message = render(template, submission, courses, payment);
         const info = await (options.sendMessage || mail.sendMessage)({ to: submission.email, ...message });
         if (!info.accepted?.some(function recipient(address) { return address.toLowerCase() === submission.email.toLowerCase(); })) {
             throw Object.assign(new Error('Recipient not accepted.'), { code: 'EREJECTED' });
@@ -154,4 +200,4 @@ async function send(submissionId, options = {}) {
     }
 }
 
-module.exports = { request, status, send, render, installTemplate };
+module.exports = { request, status, send, render, installTemplate, updatePaymentTemplate };

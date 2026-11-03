@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const pool = require('./db');
 const writeLog = require('./log');
 const acknowledgement = require('./acknowledgement');
+const payment = require('./payment');
 const { sessionStore } = require('./session');
 const { availability } = require('./courses');
 const { fail, exactKeys, courseIds, fingerprint, validateApplication } = require('./application-validation');
@@ -90,9 +91,10 @@ async function definitionFor(client, ids) {
     const banks = await client.query('SELECT course_id, definition FROM question WHERE course_id = ANY($1::int[]) ORDER BY course_id FOR SHARE', [ids]);
     if (banks.rowCount !== ids.length) fail('course_unavailable', 409);
     return { courses: courses.rows.map(function includeQuestions(course) {
-        return { id: course.id, code: course.code, title: course.title, fee: course.fee,
+        return { id: course.id, code: course.code, title: course.title, fee: course.fee, payment_deadline: course.payment_deadline.toISOString(),
             sessions: course.sessions, definition: banks.rows.find(function match(bank) { return bank.course_id === course.id; }).definition };
-    }), total: courses.rows.reduce(function sum(total, course) { return total + course.fee; }, 0) };
+    }), total: courses.rows.reduce(function sum(total, course) { return total + course.fee; }, 0),
+        payment_deadline: new Date(Math.min(...courses.rows.map(function deadline(course) { return course.payment_deadline.getTime(); }))).toISOString() };
 }
 
 async function receipt(client, session) {
@@ -102,6 +104,7 @@ async function receipt(client, session) {
     if (!result.rowCount) fail('application_not_found', 404);
     const registrations = await client.query('SELECT id, course_id, fee, answers FROM registration WHERE submission_id = $1 ORDER BY course_id', [session.submission_id]);
     return { submission: result.rows[0], acknowledgement_email: await acknowledgement.status(client, session.submission_id),
+        payment: await payment.forSubmission(client, session.submission_id, true),
         registrations: registrations.rows.map(function details(registration) {
         const course = session.definition.courses.find(function match(course) { return course.id === registration.course_id; });
         return { ...registration, code: course.code, title: course.title, definition: course.definition };
@@ -158,7 +161,7 @@ router.post('/', async function submitApplication(req, res, next) {
                 await writeLog(client, { actorType: 'participant', event: 'registration.created', courseId: course.id,
                     submissionId: session.submission_id, registrationId: registration.rows[0].id });
             }
-            // Payment is a display placeholder in this work; do not invent a deadline or transaction.
+            await payment.createPending(client, session.submission_id);
             await writeLog(client, { actorType: 'participant', event: 'application.submitted', submissionId: session.submission_id,
                 details: { registrations: current.courses.length } });
             await acknowledgement.request(client, session.submission_id);
