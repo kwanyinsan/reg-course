@@ -40,7 +40,8 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                 {(!adminPage || admin) && <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
                     {adminPage ? <>
                         {admin && <><a href="#admin/courses" aria-current={page === 'admin' || page.startsWith('admin/courses') ? 'page' : undefined}>{text.adminCourses}</a>
-                            <a href="#admin/registrations" aria-current={page.startsWith('admin/registrations') ? 'page' : undefined}>{text.registrations}</a></>}
+                            <a href="#admin/registrations" aria-current={page.startsWith('admin/registrations') ? 'page' : undefined}>{text.registrations}</a>
+                            <a href="#admin/activity" aria-current={page === 'admin/activity' ? 'page' : undefined}>{text.activity}</a></>}
                     </> : <>
                     <a href="#courses" aria-current={page.startsWith('courses') ? 'page' : undefined}>{text.courses}</a>
                     <a href="#selected" aria-current={page === 'selected' ? 'page' : undefined}>

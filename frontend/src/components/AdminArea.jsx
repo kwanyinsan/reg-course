@@ -6,6 +6,7 @@ import AdminRegistrationDetails from './AdminRegistrationDetails';
 import CourseQuestionEditor from './CourseQuestionEditor';
 import CourseCertificateEditor from './CourseCertificateEditor';
 import AttendanceQr from './AttendanceQr';
+import AdminActivity from './AdminActivity';
 
 const emptyRegistrationFilters = { q: '', state: '', payment_state: '', page: 1 };
 
@@ -13,6 +14,7 @@ function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSe
     const [courseFilters, setCourseFilters] = useState({ q: '', state: '', mode: '', page: 1 });
     const [registrationFilters, setRegistrationFilters] = useState(emptyRegistrationFilters);
     const [scopedFilters, setScopedFilters] = useState({ id: null, filters: emptyRegistrationFilters });
+    const [activityFilters, setActivityFilters] = useState({ group: '', actor: '', from: '', to: '', q: '' });
     const id = Number(page.split('/')[2]);
     if (page.endsWith('/qr')) return <AttendanceQr id={id} sessionId={page.split('/')[4]} text={text} language={language} onSessionExpired={onSessionExpired} />;
     return (
@@ -21,7 +23,8 @@ function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSe
                 <button type="button" disabled={busy} onClick={onLogout}>{busy ? text.loggingOut : text.logOut}</button>
             </div>
             {busy && <p className="visually-hidden" role="status">{text.loggingOut}</p>}
-            {page.endsWith('/questions') ? <CourseQuestionEditor id={id} adminId={admin.id} text={text} language={language} draft={questionDraft} onDraftChange={onQuestionDraftChange} onSessionExpired={onSessionExpired} onNotice={onNotice} />
+            {page === 'admin/activity' ? <AdminActivity text={text} language={language} filters={activityFilters} onFilter={setActivityFilters} onSessionExpired={onSessionExpired} />
+                : page.endsWith('/questions') ? <CourseQuestionEditor id={id} adminId={admin.id} text={text} language={language} draft={questionDraft} onDraftChange={onQuestionDraftChange} onSessionExpired={onSessionExpired} onNotice={onNotice} />
                 : page.endsWith('/certificate') ? <CourseCertificateEditor key={id} id={id} adminId={admin.id} text={text} language={language} draft={certificateDraft} onDraftChange={onCertificateDraftChange} onSessionExpired={onSessionExpired} onNotice={onNotice} />
                 : page.startsWith('admin/registrations/') ? <AdminRegistrationDetails id={id} text={text} language={language} onSessionExpired={onSessionExpired} />
                 : page === 'admin/registrations' ? <AdminRegistrationList text={text} language={language} filters={registrationFilters} onFilter={setRegistrationFilters} onSessionExpired={onSessionExpired} />

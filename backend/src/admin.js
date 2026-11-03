@@ -12,6 +12,7 @@ router.use(questionRoutes);
 router.use(require('./certificates'));
 router.use(require('./admin-attendance'));
 router.use(require('./certificate-issuance'));
+router.use(require('./activity'));
 const pageSize = 25;
 
 function positiveInteger(value) {

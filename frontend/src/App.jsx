@@ -9,6 +9,8 @@ import Registration from './components/Registration';
 import Payment from './components/Payment';
 import AttendanceScanner from './components/AttendanceScanner';
 import attendanceText from './attendance-text';
+import activityText from './activity-text';
+import attendanceResultText from './attendance-result-text';
 import { captureAttendanceLink } from './attendance-api';
 import Notification from './components/Notification';
 import useNotification from './use-notification';
@@ -37,7 +39,7 @@ function readPage() {
     if (/^#payment(?:\/|$)/.test(window.location.hash)) return `payment/${capturePaymentLink()}`;
     const page = window.location.hash.slice(1).replace(/^staff(?=\/|$)/, 'admin');
     if (!page || page === 'home') return 'courses';
-    if (['courses', 'selected', 'admin', 'registration', 'registration/review', 'registration/acknowledgement'].includes(page)) return page;
+    if (['courses', 'selected', 'admin', 'admin/activity', 'registration', 'registration/review', 'registration/acknowledgement'].includes(page)) return page;
     if (/^courses\/[1-9]\d*$/.test(page) && Number(page.split('/')[1]) <= 2147483647) return page;
     if (/^admin\/(courses|registrations)(\/[1-9]\d*)?$/.test(page) &&
         (!page.split('/')[2] || Number(page.split('/')[2]) <= 2147483647)) return page;
@@ -95,7 +97,7 @@ function App() {
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language], ...attendanceText.en, ...attendanceText[language], ...certificateSendText.en, ...certificateSendText[language] };
+    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language], ...attendanceText.en, ...attendanceText[language], ...certificateSendText.en, ...certificateSendText[language], ...activityText.en, ...activityText[language], ...attendanceResultText.en, ...attendanceResultText[language] };
     const applicationPage = page === 'registration' || page.startsWith('registration/');
     const paymentPage = page.startsWith('payment/');
     const attendancePage = page.startsWith('attendance/');
@@ -145,7 +147,7 @@ function App() {
     const total = selectedCourses.reduce(function addFee(sum, course) { return sum + feeCents(course.fee); }, 0);
     let title = text.courses;
     if (adminPage) title = !admin ? text.adminLogin : page.endsWith('/questions') ? text.registrationQuestions : page.endsWith('/certificate') ? text.certificateTitle : page.startsWith('admin/registrations/') ? text.registrationDetails
-        : page === 'admin/registrations' ? text.registrations : page.startsWith('admin/courses/') ? text.courseWorkspace : text.adminCourses;
+        : page === 'admin/activity' ? text.activity : page === 'admin/registrations' ? text.registrations : page.startsWith('admin/courses/') ? text.courseWorkspace : text.adminCourses;
     else if (applicationPage) title = applicationDraft?.receipt || page.endsWith('/acknowledgement') ? text.acknowledgement : page.endsWith('/review') ? text.reviewApplication : text.applicationTitle;
     else if (paymentPage) title = text.paymentTitle;
     else if (attendancePage) title = text.attTitle;

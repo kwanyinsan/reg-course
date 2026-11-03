@@ -1,0 +1,23 @@
+const labels = [
+    ['resultSend', 'Send attendance results', '發送出席結果', '发送出席结果'], ['resultTitle', 'Attendance result emails', '出席結果電郵', '出席结果电邮'],
+    ['resultReview', 'Confirm attendance result emails', '確認發送出席結果電郵', '确认发送出席结果电邮'],
+    ['resultNote', 'Each active participant receives only their own session result, including a missing record. Cancelled records are excluded.', '每位有效報名的參加者只會收到自己的課節結果，包括尚無出席紀錄的情況。已取消的紀錄不會收到電郵。', '每位有效报名的参加者只会收到自己的课节结果，包括尚无出席记录的情况。已取消的记录不会收到电邮。'],
+    ['resultWindow', 'Results are available for published or archived courses after the session ends.', '課節結束後，可為已發布或已封存課程發送結果。', '课节结束后，可为已发布或已归档课程发送结果。'],
+    ['resultNew', 'New messages', '新電郵', '新电邮'], ['resultRetry', 'Failed messages to retry', '重試失敗電郵', '重试失败电邮'],
+    ['resultChanged', 'Changed results', '已更改的結果', '已更改的结果'], ['resultInclude', 'Include changed results as new notifications', '將已更改的結果作為新通知發送', '将已更改的结果作为新通知发送'],
+    ['resultSkipped', 'Skipped or excluded', '略過或不符合條件', '跳过或不符合条件'], ['resultConfirm', 'Send result emails', '發送結果電郵', '发送结果电邮'],
+    ['resultCancel', 'Cancel', '取消', '取消'], ['resultSending', 'Result emails processed', '已處理結果電郵', '已处理结果电邮'],
+    ['resultComplete', 'Attendance result processing finished. Check individual email outcomes.', '出席結果電郵處理已完成，請查看各人的發送結果。', '出席结果电邮处理已完成，请查看各人的发送结果。'],
+    ['resultInterrupted', 'Result email processing stopped. Refresh the saved status before resuming.', '結果電郵處理已中止，請重新整理已儲存狀態後繼續。', '结果电邮处理已中止，请刷新已保存状态后继续。'],
+    ['resultSafety', 'Accepted and uncertain messages are skipped. Changed results need confirmation. SMTP acceptance does not confirm inbox delivery.', 'SMTP已接受或結果未能確認的電郵會略過。已更改的結果須經確認才發送。SMTP接受郵件不代表已送達收件匣。', 'SMTP已接受或结果未能确认的电邮会跳过。已更改的结果须经确认才发送。SMTP接受邮件不代表已送达收件箱。'],
+    ['resultStatus', 'Result email', '結果電郵', '结果电邮'], ['resultChangedNote', 'Attendance differs from the last email snapshot.', '出席紀錄與上次電郵快照不同。', '出席记录与上次电邮快照不同。'],
+    ['result_conflict', 'Attendance or email history changed. Refresh and confirm the current result.', '出席或電郵紀錄已更改，請重新整理並確認最新結果。', '出席或电邮记录已更改，请刷新并确认最新结果。'],
+    ['result_confirmation_required', 'Confirm the changed result before sending a new notification.', '請先確認已更改的結果，再發送新通知。', '请先确认已更改的结果，再发送新通知。'],
+    ['result_cancelled', 'Registration or application cancelled.', '報名或申請已取消。', '报名或申请已取消。'],
+    ['result_not_available', 'Results cannot be sent before session end or for an unpublished course.', '課節結束前或未發布課程不能發送結果。', '课节结束前或未发布课程不能发送结果。'],
+    ['result_recipient_excluded', 'Recipient address is invalid or reserved for testing.', '收件地址無效或為保留測試地址。', '收件地址无效或为保留测试地址。'],
+    ['result_snapshot_unavailable', 'The saved result email snapshot is unavailable. Administrator review is required.', '已儲存的結果電郵快照無法使用，須由管理員檢查。', '已保存的结果电邮快照无法使用，须由管理员检查。'],
+    ['result_uncertain', 'Delivery is uncertain. This result will not be sent again automatically.', '發送結果未能確認，此結果不會自動重發。', '发送结果未能确认，此结果不会自动重发。'],
+    ['resultScannerEmails', 'Scanner emails', '掃描器電郵', '扫描器电邮'],
+];
+export default Object.fromEntries(['en', 'zh-Hant', 'zh-Hans'].map((language, index) => [language, Object.fromEntries(labels.map(row => [row[0], row[index + 1]]))]));

@@ -4,6 +4,7 @@ const pool = require('./db');
 const attendance = require('./attendance');
 const access = require('./attendance-access');
 const mail = require('./attendance-mail');
+const results = require('./attendance-result-mail');
 const payments = require('./payment');
 const router = express.Router();
 
@@ -22,18 +23,20 @@ router.get('/courses/:id/attendance/:sessionId', async function list(req, res, n
         const result = await pool.query(`SELECT r.id,r.submission_id,r.state,r.attendance,r.certificate_number,s.reference,s.full_name,s.email,s.is_cancelled,
             CASE WHEN p.id IS NULL AND s.total=0 THEN 'not_required' ELSE ${payments.stateSql} END AS payment_state FROM registration r JOIN submission s ON s.id=r.submission_id
             LEFT JOIN payment p ON p.submission_id=s.id WHERE r.course_id=$1 ORDER BY s.full_name,r.id`, [id]);
+        const resultStates = await results.history(pool, id, sessionId, result.rows.map(row => row.id));
         const participants = result.rows.map(function participant(row) {
             const eligible = course.state === 'published' && row.state === 'registered' && !row.is_cancelled && !row.certificate_number;
             return { id: row.id, reference: row.reference, full_name: row.full_name, email: row.email,
                 cancelled: row.state === 'cancelled' || row.is_cancelled, certificate_locked: Boolean(row.certificate_number),
                 entry: row.attendance[sessionId] || null, percentage: attendance.percentage(row, course), payment_state: row.payment_state,
+                result_mail: results.view(row, course, session, resultStates.get(row.id)),
                 email_status: mail.excluded(row.email) ? 'excluded' : states.get(row.id)?.status || 'not_requested',
                 email_eligible: eligible && !mail.excluded(row.email) && Boolean(round?.registration_ids.includes(row.id)) };
         });
         const now = course.server_time.getTime();
         res.json({ course: { id: course.id, code: course.code, title: course.title, published_at: course.published_at }, session, round,
             server_time: course.server_time, can_start: !round && course.state === 'published' && now >= new Date(session.starts_at).getTime() - 900000 && now < new Date(session.ends_at).getTime(),
-            participants });
+            results_can_send: results.available(course, session), participants });
     } catch (error) { next(error); }
 });
 router.post('/courses/:id/attendance/:sessionId/start', async function start(req, res, next) {
@@ -60,6 +63,10 @@ router.post('/courses/:id/attendance/:sessionId/email', async function send(req,
         if (!attendance.exact(req.body, ['registration_id', 'retry']) || !Number.isInteger(req.body.registration_id) || req.body.registration_id < 1 || req.body.registration_id > 2147483647 || typeof req.body.retry !== 'boolean') access.fail('invalid_request');
         res.json(await mail.send(id, sessionId, req.body.registration_id, req.body.retry, req.admin.id));
     } catch (error) { next(error); }
+});
+router.post('/courses/:id/attendance/:sessionId/result-email', async function sendResults(req, res, next) {
+    try { res.json(await results.send(...parameters(req), req.body, req.admin.id)); }
+    catch (error) { next(error); }
 });
 router.put('/registrations/:id/attendance/:sessionId', async function correct(req, res, next) {
     try {

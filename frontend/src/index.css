@@ -12,6 +12,16 @@
 .session-attendance { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 .attendance-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-block: 16px; }
 .attendance-actions button { margin: 0; }
+.attendance-result-summary { flex-basis: 100%; }
+.attendance-result-summary:empty { display: none; }
+.attendance-result-dialog { width: min(600px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow: auto; box-sizing: border-box; border: 1px solid var(--navy); padding: 24px; color: inherit; }
+.attendance-result-dialog::backdrop { background: #0008; }
+.attendance-result-dialog h3 { margin-top: 0; color: var(--navy); }
+.attendance-result-choice { display: flex; align-items: baseline; gap: 10px; }
+.activity-filters input[type="date"] { min-width: 0; }
+.activity-related { list-style: none; margin: 0; padding: 0; }
+.activity-related li + li { margin-top: 8px; }
+.activity-table p { margin: 6px 0; }
 .attendance-note { color: #555; font-size: 14px; max-width: 70ch; }
 .attendance-roster { margin-block: 20px; }
 .attendance-roster summary { cursor: pointer; color: var(--navy); font-weight: 700; padding-block: 12px; }
