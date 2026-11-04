@@ -25,6 +25,8 @@ const labels = [
     ['act_application_submitted', 'Application submitted', '已提交申請', '已提交申请'], ['act_registration_created', 'Course registration created', '已建立課程報名', '已创建课程报名'],
     ['act_course_questions_saved', 'Course questions saved', '已儲存課程問題', '已保存课程问题'], ['act_course_certificate_template_saved', 'Certificate wording saved', '已儲存證書文字', '已保存证书文字'],
     ['act_course_fee_updated', 'Course fee updated', '已更新課程費用', '已更新课程费用'], ['act_course_wording_updated', 'Course wording updated', '已更新課程文字', '已更新课程文字'],
+    ['act_course_created', 'Draft course created', '已建立課程草稿', '已创建课程草稿'],
+    ['act_course_published', 'Course published', '已發佈課程', '已发布课程'], ['act_course_archived', 'Course archived', '已封存課程', '已归档课程'],
     ['act_payment_created', 'Payment created', '已建立付款紀錄', '已创建付款记录'], ['act_payment_completed', 'Payment recorded', '已記錄付款', '已记录付款'],
     ['act_payment_paid', 'Existing paid result recovered', '已取回現有付款結果', '已恢复现有付款结果'], ['act_payment_expired', 'Payment expired', '付款已逾期', '付款已逾期'],
     ['act_payment_cancelled', 'Payment cancelled', '付款已取消', '付款已取消'], ['act_payment_rejected', 'Payment request rejected', '付款要求被拒絕', '付款请求被拒绝'], ['act_payment_failed', 'Payment recording failed', '付款紀錄儲存失敗', '付款记录保存失败'],

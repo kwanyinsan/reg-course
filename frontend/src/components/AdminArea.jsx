@@ -28,7 +28,7 @@ function AdminArea({ text, language, page, admin, busy, onNotice, onLogout, onSe
                 : page.endsWith('/certificate') ? <CourseCertificateEditor key={id} id={id} adminId={admin.id} text={text} language={language} draft={certificateDraft} onDraftChange={onCertificateDraftChange} onSessionExpired={onSessionExpired} onNotice={onNotice} />
                 : page.startsWith('admin/registrations/') ? <AdminRegistrationDetails id={id} text={text} language={language} onSessionExpired={onSessionExpired} />
                 : page === 'admin/registrations' ? <AdminRegistrationList text={text} language={language} filters={registrationFilters} onFilter={setRegistrationFilters} onSessionExpired={onSessionExpired} />
-                    : page.startsWith('admin/courses/') ? <AdminCourseDetails id={id} text={text} language={language}
+                    : page.startsWith('admin/courses/') ? <AdminCourseDetails key={id} id={id} text={text} language={language}
                         filters={scopedFilters.id === id ? scopedFilters.filters : emptyRegistrationFilters}
                         onFilter={function changeScopedFilters(filters) { setScopedFilters({ id, filters }); }} onSessionExpired={onSessionExpired} onNotice={onNotice} />
                         : <AdminCourseList text={text} language={language} filters={courseFilters} onFilter={setCourseFilters} onSessionExpired={onSessionExpired} />}

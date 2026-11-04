@@ -665,6 +665,11 @@ p {
     overflow-wrap: anywhere;
 }
 
+.course-state-actions { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
+.course-state-confirmation { padding: 20px; border-left: 3px solid var(--teal); background: #f5f6f8; }
+.course-state-confirmation p { margin-top: 0; }
+.course-state-actions .course-actions { margin-bottom: 0; }
+
 .course-detail .course-selection-action { margin-inline-start: auto; }
 
 .course-card .course-actions {

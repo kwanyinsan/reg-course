@@ -6,7 +6,7 @@ const actions = {};
 function action(event, group, outcome = 'recorded') { actions[event] = { action: event.replaceAll('.', '_'), group, outcome }; }
 for (const event of ['login_succeeded', 'logout_succeeded', 'login_failed', 'session_invalid']) action(`admin.${event}`, 'access', ['login_failed', 'session_invalid'].includes(event) ? 'failed' : 'recorded');
 for (const event of ['application.submitted', 'registration.created']) action(event, 'applications');
-for (const event of ['questions_saved', 'certificate_template_saved', 'fee_updated', 'wording_updated']) action(`course.${event}`, 'courses');
+for (const event of ['created', 'published', 'archived', 'questions_saved', 'certificate_template_saved', 'fee_updated', 'wording_updated']) action(`course.${event}`, 'courses');
 for (const event of ['created', 'completed', 'paid', 'expired', 'cancelled', 'rejected', 'failed']) action(`payment.${event}`, 'payments', ['rejected', 'failed'].includes(event) ? 'failed' : 'recorded');
 for (const event of ['opened', 'recorded', 'corrected', 'format_updated']) action(`attendance.${event}`, 'attendance');
 action('certificate.issued', 'certificates');

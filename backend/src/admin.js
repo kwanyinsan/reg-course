@@ -1,11 +1,12 @@
 const express = require('express');
 const pool = require('./db');
+const writeLog = require('./log');
 const acknowledgement = require('./acknowledgement');
 const payments = require('./payment');
 const { lockReason: certificateLockReason } = require('./certificate-template');
 const { courseSummary, publicInformation } = require('./courses');
 const questionRoutes = require('./questions');
-const { questionLockReason } = require('./question-definition');
+const { questionLockReason, exactKeys } = require('./question-definition');
 
 const router = express.Router();
 router.use(questionRoutes);
@@ -129,6 +130,54 @@ router.get('/courses/:id', async function courseDetails(req, res, next) {
             total_registrations: course.total_registrations, paid_count: course.paid_count, registered_count: course.registered_count,
             cancelled_count: course.cancelled_count } });
     } catch (error) { next(error); }
+});
+
+router.post('/courses/:id/state', async function changeCourseState(req, res, next) {
+    const id = readId(req, res);
+    if (!id) return;
+    const body = req.body;
+    if (!exactKeys(body, ['state', 'original_state']) || !['published', 'archived'].includes(body.state) ||
+        !['draft', 'published', 'archived'].includes(body.original_state)) {
+        return res.status(400).json({ code: 'course_state_invalid', message: 'Provide a valid course state and original state.' });
+    }
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+        await client.query("SET LOCAL lock_timeout = '5s'");
+        const result = await client.query('SELECT id, state, published_at FROM course WHERE id = $1 FOR UPDATE', [id]);
+        if (!result.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ code: 'course_not_found', message: 'Course not found.' });
+        }
+        let course = result.rows[0];
+        if (course.state !== body.state) {
+            if (course.state !== body.original_state) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ code: 'course_state_conflict', message: 'The course state has changed. Refresh before trying again.' });
+            }
+            if (body.state === 'published') {
+                const questions = await client.query('SELECT id FROM question WHERE course_id = $1', [id]);
+                if (!questions.rowCount) {
+                    await client.query('ROLLBACK');
+                    return res.status(409).json({ code: 'course_questions_required', message: 'Save the question bank before publishing this course.' });
+                }
+            }
+            const saved = await client.query('UPDATE course SET state = $1 WHERE id = $2 RETURNING id, state, published_at', [body.state, id]);
+            await writeLog(client, { actorType: 'admin', adminId: req.admin.id, courseId: id,
+                event: body.state === 'published' ? 'course.published' : 'course.archived',
+                details: { before_state: course.state, after_state: body.state } });
+            course = saved.rows[0];
+        }
+        await client.query('COMMIT');
+        res.json({ course, code: 'course_state_saved' });
+    } catch (error) {
+        if (client) await client.query('ROLLBACK');
+        if (error.code === '55P03') return res.status(409).json({ code: 'course_state_busy', message: 'This course is being updated. Try again shortly.' });
+        next(error);
+    } finally {
+        if (client) client.release();
+    }
 });
 
 router.get('/registrations', async function listRegistrations(req, res, next) {
