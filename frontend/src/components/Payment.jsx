@@ -56,7 +56,7 @@ function Payment({ accessKey, text, language, onNotice }) {
         return function clearExpiry() { window.clearTimeout(timer); };
     }, [accessKey, result.payment]);
 
-    async function checkStatus(announce = true) {
+    async function retryLoad() {
         if (pending.current) return;
         pending.current = true;
         ++latest.current;
@@ -66,7 +66,6 @@ function Payment({ accessKey, text, language, onNotice }) {
             setResult({ status: 'ready', payment: data.payment, code: '' });
             setUnconfirmed(false);
             setNotice('');
-            if (announce) onNotice('paymentStatusChecked');
         } catch (error) {
             if (['payment_link_invalid', 'payment_link_expired'].includes(error.code)) {
                 clearPaymentToken(accessKey);
@@ -87,6 +86,7 @@ function Payment({ accessKey, text, language, onNotice }) {
                 if (version !== latest.current) return;
                 setResult({ status: 'ready', payment: data.payment, code: '' });
                 setUnconfirmed(false);
+                setNotice('');
             } catch (error) {
                 if (version !== latest.current) return;
                 if (['payment_link_invalid', 'payment_link_expired'].includes(error.code)) {
@@ -139,7 +139,7 @@ function Payment({ accessKey, text, language, onNotice }) {
     return <section className="payment-page" aria-busy={busy}>
         {result.status === 'loading' ? <p role="status">{text.applicationLoading}</p> : !payment ? <>
             <p className="feedback error" role="alert">{text[`paymentError_${result.code}`] || text.paymentLoadError}</p>
-            {!inaccessible && <button type="button" disabled={busy} onClick={function retry() { checkStatus(); }}>{text.checkStatus}</button>}
+            {!inaccessible && <button type="button" disabled={busy} onClick={retryLoad}>{text.tryAgain}</button>}
         </> : <>
             {payment.state === 'paid' ? <div className="application-received"><h2>{text.paymentRecorded}</h2><p>{text.paymentRecordedNote}</p></div>
                 : <p>{text.paymentIntro}</p>}
@@ -170,10 +170,9 @@ function Payment({ accessKey, text, language, onNotice }) {
                 {payment.can_pay && <p>{text.paymentInstructions}</p>}
                 <p>{text.paymentLinkLifetime}</p>
                 {notice && <p className="feedback error" role="alert">{text[notice] || text.paymentLoadError}</p>}
-                <div className="payment-actions"><button type="button" className="secondary-button" disabled={busy}
-                    onClick={function check() { checkStatus(); }}>{text.checkStatus}</button>
-                    {payment.can_pay && <button type="button" disabled={busy || unconfirmed} onClick={pay}>{text.pay}</button>}
-                </div>
+                {payment.can_pay && <div className="payment-actions">
+                    <button type="button" disabled={busy || unconfirmed} onClick={pay}>{text.pay}</button>
+                </div>}
             </aside></div>
         </>}
     </section>;
