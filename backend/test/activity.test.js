@@ -2,7 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
 const pool = require('../src/db');
 
 test('protected activity projection, filters, stable cursors and read-only requests', async function integration() {
@@ -68,9 +67,12 @@ test('protected activity projection, filters, stable cursors and read-only reque
         assert.equal((await read('?from=2026-01-01&to=2026-01-01')).data.records.length, 0);
         for (const query of ['?group=invalid', '?actor=admin&actor=system', '?from=2026-02-30', '?from=2026-02-01&to=2026-01-01', '?cursor=bad', '?page=1', '?q=' + 'x'.repeat(101)]) assert.equal((await read(query)).status, 400, query);
         assert.equal((await pool.query('SELECT count(*) AS count FROM log')).rows[0].count, String(Number(before) + 1));
-        const text = (await import(pathToFileURL(path.join(__dirname, '../../frontend/src/activity-text.js')))).default;
+        const text = {};
         for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
-            for (const value of Object.values(text[language])) assert.ok(typeof value === 'string' && value.trim());
+            text[language] = (await import(`../../frontend/src/translations/${language}.js`)).default;
+        }
+        for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
+            for (const value of Object.values(text[language]).flat()) assert.ok(typeof value === 'string' && value.trim());
             for (const item of Object.values(require('../src/activity').actions)) if (item.group !== 'email') assert.ok(text[language]['act_' + item.action], item.action);
         }
         console.log('Verified activity access, microsecond cursor boundaries, HK dates, references, safe summaries, unknown events and three-language labels.');

@@ -1,5 +1,5 @@
-const pool = require('./db');
-const acknowledgement = require('./acknowledgement');
+const pool = require('../src/db');
+const acknowledgement = require('../src/acknowledgement');
 
 async function resend() {
     const argument = process.argv[2];

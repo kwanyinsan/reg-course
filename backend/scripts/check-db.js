@@ -1,4 +1,4 @@
-const pool = require('./db');
+const pool = require('../src/db');
 
 async function checkDatabase() {
     const result = await pool.query(

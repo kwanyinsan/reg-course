@@ -1,5 +1,5 @@
-const pool = require('./db');
-const writeLog = require('./log');
+const pool = require('../../src/db');
+const writeLog = require('../../src/log');
 
 const replacements = [
     ['CR-002', 149.50, 140], ['CR-003', 350.25, 350], ['CR-006', 50.10, 50],

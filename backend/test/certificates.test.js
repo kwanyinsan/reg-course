@@ -168,7 +168,10 @@ test('certificate authorisation, transactional saving, conflicts and publication
 test('certificate draft comparison ignores JSON key order and UI translations are complete', async function frontendHelpers() {
     const { pathToFileURL } = require('node:url');
     const helpers = await import(pathToFileURL(path.join(__dirname, '../../frontend/src/certificate-utils.js')));
-    const { default: texts } = await import(pathToFileURL(path.join(__dirname, '../../frontend/src/certificate-text.js')));
+    const texts = {};
+    for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
+        texts[language] = (await import(`../../frontend/src/translations/${language}.js`)).default;
+    }
     const reordered = { footer: starter.footer, body: starter.body, heading: starter.heading };
     assert.equal(helpers.certificateDraftDirty({ template: starter, originalTemplate: reordered }), false);
     assert.equal(helpers.certificateDraftDirty({ template: starter, originalTemplate: null, starter }), false);

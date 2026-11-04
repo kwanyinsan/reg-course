@@ -8,21 +8,18 @@ import SelectedCourses from './components/SelectedCourses';
 import Registration from './components/Registration';
 import Payment from './components/Payment';
 import AttendanceScanner from './components/AttendanceScanner';
-import attendanceText from './attendance-text';
-import activityText from './activity-text';
-import attendanceResultText from './attendance-result-text';
 import { captureAttendanceLink } from './attendance-api';
 import Notification from './components/Notification';
 import useNotification from './use-notification';
-import applicationText from './application-text';
-import paymentText from './payment-text';
-import certificateText from './certificate-text';
-import certificateSendText from './certificate-send-text';
 import { certificateDraftDirty } from './certificate-utils';
 import { capturePaymentLink } from './payment-link';
 import { courseText, feeCents, formatMoney, readSelectedIds } from './course-utils';
-import translations from './translations';
 import { questionDraftDirty } from './question-utils';
+import englishText from './translations/en';
+import traditionalText from './translations/zh-Hant';
+import simplifiedText from './translations/zh-Hans';
+
+const translations = { en: englishText, 'zh-Hant': traditionalText, 'zh-Hans': simplifiedText };
 
 function readLanguage() {
     try {
@@ -97,7 +94,7 @@ function App() {
     const [detailCourse, setDetailCourse] = useState(null);
     const selectionPending = useRef(false);
     const catalogVersion = useRef(0);
-    const text = { ...translations.en, ...translations[language], ...applicationText.en, ...applicationText[language], ...paymentText.en, ...paymentText[language], ...certificateText.en, ...certificateText[language], ...attendanceText.en, ...attendanceText[language], ...certificateSendText.en, ...certificateSendText[language], ...activityText.en, ...activityText[language], ...attendanceResultText.en, ...attendanceResultText[language] };
+    const text = translations[language] || translations.en;
     const applicationPage = page === 'registration' || page.startsWith('registration/');
     const paymentPage = page.startsWith('payment/');
     const attendancePage = page.startsWith('attendance/');

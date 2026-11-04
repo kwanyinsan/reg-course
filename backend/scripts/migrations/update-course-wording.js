@@ -1,6 +1,6 @@
-const pool = require('./db');
-const courses = require('./demo-courses');
-const writeLog = require('./log');
+const pool = require('../../src/db');
+const courses = require('../../src/demo-courses');
+const writeLog = require('../../src/log');
 
 const originalFingerprints = [
     '027e490e41083179890e802a8840245b', '4cd1e7dd58209465567d9eef529b7508',

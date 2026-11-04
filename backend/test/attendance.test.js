@@ -7,7 +7,7 @@ const pool = require('../src/db');
 const access = require('../src/attendance-access');
 const attendance = require('../src/attendance');
 const attendanceMail = require('../src/attendance-mail');
-const { updateAttendance } = require('../src/update-attendance');
+const { updateAttendance } = require('../scripts/migrations/update-attendance');
 
 process.env.ATTENDANCE_LINK_SECRET = crypto.randomBytes(32).toString('base64url');
 
@@ -257,10 +257,13 @@ test('single-scan migration, guarded attendance, corrections, SMTP outcomes and 
 });
 
 test('attendance website languages have matching keys and the active UI has no departure fields', async function languageCoverage() {
-    const text = (await import('../../frontend/src/attendance-text.js')).default;
+    const text = {};
+    for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
+        text[language] = (await import(`../../frontend/src/translations/${language}.js`)).default;
+    }
     for (const language of ['zh-Hant', 'zh-Hans']) {
         assert.deepEqual(Object.keys(text[language]).sort(), Object.keys(text.en).sort());
-        assert.equal(Object.values(text[language]).every(value => typeof value === 'string' && value.trim()), true);
+        assert.equal(Object.values(text[language]).flat().every(value => typeof value === 'string' && value.trim()), true);
     }
     const ui = fs.readFileSync(path.join(__dirname, '../../frontend/src/components/AdminRegistrationDetails.jsx'), 'utf8');
     assert.equal(/checkOut|checkIn|check_out_at|check_in_at/.test(ui), false);

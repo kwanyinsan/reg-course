@@ -119,8 +119,8 @@ async function request(database, submissionId) {
     await writeLog(database, { actorType: 'system', event: logPrefix + 'requested', submissionId });
 }
 
-async function installTemplate() {
-    const result = await pool.query(
+async function installTemplate(database = pool) {
+    const result = await database.query(
         `INSERT INTO email(course_id,event,subject,body) VALUES(NULL,$1,$2,$3)
          ON CONFLICT(course_id,event) DO NOTHING RETURNING id`, [templateEvent, subject, body]);
     return result.rowCount;

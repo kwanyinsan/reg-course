@@ -1,5 +1,5 @@
-const pool = require('./db');
-const { updatePaymentTemplate } = require('./acknowledgement');
+const pool = require('../../src/db');
+const { updatePaymentTemplate } = require('../../src/acknowledgement');
 
 updatePaymentTemplate()
     .then(function updated(count) { console.log('Acknowledgement templates updated:', count); })

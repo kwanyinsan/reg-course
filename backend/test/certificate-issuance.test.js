@@ -268,9 +268,12 @@ test('single-action certificate issuance, snapshots, protected access and safe e
 });
 
 test('certificate sending has complete three-language website text', async function languageCoverage() {
-    const text = (await import('../../frontend/src/certificate-send-text.js')).default;
+    const text = {};
+    for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
+        text[language] = (await import(`../../frontend/src/translations/${language}.js`)).default;
+    }
     for (const language of ['zh-Hant', 'zh-Hans']) {
         assert.deepEqual(Object.keys(text[language]).sort(), Object.keys(text.en).sort());
-        assert.ok(Object.values(text[language]).every(value => value.trim()));
+        assert.ok(Object.values(text[language]).flat().every(value => value.trim()));
     }
 });

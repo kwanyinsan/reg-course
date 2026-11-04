@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const pool = require('./db');
-const writeLog = require('./log');
+const pool = require('../../src/db');
+const writeLog = require('../../src/log');
 
 function guardBody(value) {
     const body = value.slice(value.indexOf('DECLARE'), value.lastIndexOf('END;') + 4);
@@ -11,7 +11,7 @@ function guardBody(value) {
 }
 
 async function updateAttendance(database = pool) {
-    const source = fs.readFileSync(path.join(__dirname, '../../database/schema.sql'), 'utf8');
+    const source = fs.readFileSync(path.join(__dirname, '../../../database/schema.sql'), 'utf8');
     const definition = source.match(/CREATE FUNCTION validate_registration_data\(\)[\s\S]*?\$\$;/)?.[0];
     if (!definition) throw new Error('Attendance validator source is missing.');
     const client = await database.connect();

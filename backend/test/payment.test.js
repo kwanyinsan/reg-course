@@ -210,7 +210,10 @@ test('protected combined payments, locked completion, recovery and history', asy
 test('payment links keep separate browser history and complete translations', async function browserHelpers() {
     const { pathToFileURL } = require('node:url');
     const links = await import(pathToFileURL(path.join(__dirname, '../../frontend/src/payment-link.js')));
-    const { default: text } = await import(pathToFileURL(path.join(__dirname, '../../frontend/src/payment-text.js')));
+    const text = {};
+    for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
+        text[language] = (await import(`../../frontend/src/translations/${language}.js`)).default;
+    }
     const storage = new Map();
     global.sessionStorage = { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
     global.window = { location: { hash: '#payment/first.' + 'A'.repeat(43) }, history: {

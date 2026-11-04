@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
 const nodemailer = require('nodemailer');
-const { pathToFileURL } = require('node:url');
 const pool = require('../src/db');
 const results = require('../src/attendance-result-mail');
 const attendance = require('../src/attendance');
@@ -193,8 +192,11 @@ test('session result snapshots, recipient rules, corrections, concurrent claims 
         for (const privateValue of [present.email, present.name, 'snapshot', 'Private diagnostic', 'message_id']) assert.equal(activity.includes(privateValue), false);
         const outcomes = await pool.query("SELECT details FROM log WHERE event LIKE 'attendance.result.email.%' AND event<>'attendance.result.email.requested'");
         for (const row of outcomes.rows) for (const key of Object.keys(row.details)) assert.ok(['session_id', 'snapshot_id', 'attempt_id', 'status', 'message_id', 'code', 'command', 'responseCode'].includes(key));
-        const text = (await import(pathToFileURL(path.join(__dirname, '../../frontend/src/attendance-result-text.js')))).default;
-        for (const language of ['en', 'zh-Hant', 'zh-Hans']) for (const value of Object.values(text[language])) assert.ok(typeof value === 'string' && value.trim());
+        const text = {};
+        for (const language of ['en', 'zh-Hant', 'zh-Hans']) {
+            text[language] = (await import(`../../frontend/src/translations/${language}.js`)).default;
+        }
+        for (const language of ['en', 'zh-Hant', 'zh-Hans']) for (const value of Object.values(text[language]).flat()) assert.ok(typeof value === 'string' && value.trim());
         console.log('Verified result recipients, missing records, snapshots, A/B/A corrections, explicit updates, concurrent claims, local SMTP, failures, uncertainty, privacy and unchanged scanner states.');
     } finally {
         mail.sendMessage = originalSend;
