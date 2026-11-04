@@ -32,3 +32,9 @@ export function hkInput(value) {
     const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
     return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`;
 }
+
+export function hkTimestamp(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value)) return '';
+    // datetime-local omits zero seconds; the API requires an explicit offset and seconds.
+    return `${value.length === 16 ? `${value}:00` : value}+08:00`;
+}

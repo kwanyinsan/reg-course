@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { attendanceRequest, hkInput } from '../attendance-api';
+import { attendanceRequest, hkInput, hkTimestamp } from '../attendance-api';
 
 export default function AttendanceCorrection({ row, sessionId, text, onSaved, onCancel, onSessionExpired }) {
     const [time, setTime] = useState(hkInput(row.entry?.recorded_at || new Date()));
@@ -13,7 +13,7 @@ export default function AttendanceCorrection({ row, sessionId, text, onSaved, on
         setIssue('');
         try {
             await attendanceRequest(`admin/registrations/${row.id}/attendance/${sessionId}`, 'PUT', {
-                recorded_at: clear ? null : `${time}+08:00`, original_entry: row.entry, reason,
+                recorded_at: clear ? null : hkTimestamp(time), original_entry: row.entry, reason,
             });
             onSaved();
         } catch (error) {
