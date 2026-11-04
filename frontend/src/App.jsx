@@ -107,7 +107,7 @@ function App() {
     async function beginApplication() {
         if (selectionPending.current) return;
         if (applicationDraft?.pendingPayload) { window.location.hash = 'registration/review'; return; }
-        if (applicationDraft?.receipt) {
+        if (!applicationDraft || applicationDraft.receipt || applicationDraft.completed) {
             selectionPending.current = true;
             setSelectionBusy(true);
             try {
@@ -167,7 +167,9 @@ function App() {
                 window.location.replace(window.location.hash.replace(/^#staff/, '#admin'));
                 return;
             }
-            setPage(readPage());
+            const nextPage = readPage();
+            setApplicationDraft(current => current?.receipt && nextPage !== 'registration/acknowledgement' ? { completed: true } : current);
+            setPage(nextPage);
             requestAnimationFrame(function focusPage() {
                 document.getElementById('page-title')?.focus();
                 window.scrollTo(0, 0);
@@ -183,6 +185,14 @@ function App() {
             window.removeEventListener('hashchange', changePage);
             window.removeEventListener('popstate', changePage);
         };
+    }, []);
+
+    useEffect(function forgetAcknowledgementOnReturn() {
+        function returned(event) {
+            if (event.persisted) setApplicationDraft(current => current?.receipt ? { completed: true } : current);
+        }
+        window.addEventListener('pageshow', returned);
+        return function stopWatching() { window.removeEventListener('pageshow', returned); };
     }, []);
 
     useEffect(function saveSelection() {

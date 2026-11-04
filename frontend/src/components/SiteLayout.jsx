@@ -1,5 +1,6 @@
 function SiteLayout({ text, language, onLanguageChange, page, admin, title, selectedCount, children }) {
     const adminPage = page === 'admin' || page.startsWith('admin/');
+    const paymentPage = page.startsWith('payment/');
     if (admin && page.endsWith('/qr')) return <main id="main-content" className="attendance-fullscreen" tabIndex="-1">{children}</main>;
     let backLink = null;
     if (page.startsWith('courses/')) backLink = { href: '#courses', label: text.backToCourses, parent: text.courses };
@@ -13,6 +14,13 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
         { code: 'zh-Hant', label: '繁', name: '繁體中文' },
         { code: 'zh-Hans', label: '简', name: '简体中文' },
     ];
+    const languageControls = <div className="language-controls" role="group" aria-label={text.language}>
+        {languages.map(function languageButton(item) {
+            return <button type="button" key={item.code} lang={item.code}
+                aria-label={item.name} aria-pressed={language === item.code}
+                onClick={function chooseLanguage() { onLanguageChange(item.code); }}>{item.label}</button>;
+        })}
+    </div>;
 
     return (
         <div className="site-layout">
@@ -20,21 +28,11 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                 event.preventDefault();
                 document.getElementById('main-content').focus();
             }}>{text.skipToContent}</a>
-            <header className="site-header">
+            {!paymentPage && <header className="site-header">
                 <div className="header-content content-width">
                     <a className="site-name" href={adminPage ? admin ? '#admin/courses' : '#admin' : '#courses'}>{adminPage ? text.adminArea : text.siteName}</a>
                     <div className="header-actions">
-                        <div className="language-controls" role="group" aria-label={text.language}>
-                            {languages.map(function languageButton(item) {
-                                return (
-                                    <button type="button" key={item.code} lang={item.code}
-                                        aria-label={item.name} aria-pressed={language === item.code}
-                                        onClick={function chooseLanguage() { onLanguageChange(item.code); }}>
-                                        {item.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {languageControls}
                     </div>
                 </div>
                 {(!adminPage || admin) && <nav className="site-navigation content-width" aria-label={text.mainNavigation}>
@@ -49,9 +47,10 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                     </a>
                     </>}
                 </nav>}
-            </header>
-            <main id="main-content" className="main-content content-width" tabIndex="-1">
-                {page !== 'courses' && (
+            </header>}
+            <main id="main-content" className={`main-content content-width${paymentPage ? ' payment-content' : ''}`} tabIndex="-1">
+                {paymentPage && <div className="payment-language-controls">{languageControls}</div>}
+                {page !== 'courses' && !paymentPage && (
                     <div className="page-navigation">
                     {backLink && <a className="page-back" href={backLink.href}>{backLink.label}</a>}
                     <nav className="breadcrumb" aria-label={text.breadcrumb}>
@@ -65,9 +64,9 @@ function SiteLayout({ text, language, onLanguageChange, page, admin, title, sele
                 <h1 id="page-title" tabIndex="-1">{title}</h1>
                 {children}
             </main>
-            <footer className="site-footer">
+            {!paymentPage && <footer className="site-footer">
                 <div className="content-width">{text.siteName}</div>
-            </footer>
+            </footer>}
         </div>
     );
 }

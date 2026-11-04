@@ -185,7 +185,11 @@ router.post('/', async function submitApplication(req, res, next) {
 router.get('/result', async function applicationResult(req, res, next) {
     try {
         const result = await transaction(req, res, false, async function read(client, session) {
-            if (!session.submission_id) fail('application_not_found', 404);
+            // Recovery is limited to the active form, whose review token stays in memory.
+            // The application cookie alone must not reopen a completed acknowledgement.
+            if (!session.submission_id || !session.review_token || req.get('X-Application-Review') !== session.review_token) {
+                fail('application_not_found', 404);
+            }
             return { body: { receipt: await receipt(client, session) } };
         });
         res.json(result.body);

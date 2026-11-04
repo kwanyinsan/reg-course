@@ -66,6 +66,9 @@ test('public application transactions, validation and private recovery', async f
             return { status: response.status, data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] || cookie };
         }
         async function prepare(course_ids = ids) { const result = await call('/definition', { course_ids }); assert.equal(result.status, 200); return result; }
+        async function recover(prepared) {
+            return call('/result', undefined, prepared.cookie, { 'X-Application-Review': prepared.data.review_token });
+        }
         function payload(prepared) {
             return { review_token: prepared.data.review_token, personal: { salutation: 'Ms', full_name: 'Synthetic Test', organisation: 'Isolated QA', job_title: 'Tester', phone: '00001234', email: 'qa@example.invalid', comments: '', consent_accepted: true },
                 answers: Object.fromEntries(prepared.data.definition.courses.map(function answer(course) { return [course.id, { goal: `Goal for ${course.id}`, level: 'a', topics: ['b', 'a'] }]; })) };
@@ -103,13 +106,15 @@ test('public application transactions, validation and private recovery', async f
         assert.equal(payment.due_at, prepared.data.definition.courses[0].payment_deadline, 'Free courses also participate in the earliest deadline');
         assert.equal(payment.access_url, emailLinks[0], 'Acknowledgement and email must use the same protected URL');
         assert.equal(sent, 1);
-        assert.equal((await call('/result', undefined, prepared.cookie)).data.receipt.acknowledgement_email.status, 'accepted');
+        assert.equal((await call('/result', undefined, prepared.cookie)).status, 404, 'A cookie alone cannot reopen an acknowledgement');
+        assert.equal((await call('/result', undefined, prepared.cookie, { 'X-Application-Review': 'wrong' })).status, 404);
+        assert.equal((await recover(prepared)).data.receipt.acknowledgement_email.status, 'accepted');
         const reordered = structuredClone(body);
         reordered.answers[ids[0]].topics.reverse();
         assert.equal((await call('', reordered, prepared.cookie)).status, 200);
         const storedSession = await pool.query('SELECT sess FROM session WHERE sid=$1', ['application:' + prepared.cookie.split('=')[1]]);
         assert.equal(JSON.stringify(storedSession.rows[0].sess).includes('Synthetic Test'), false);
-        assert.equal((await call('/result', undefined, prepared.cookie)).status, 200);
+        assert.equal((await recover(prepared)).status, 200, 'The active form can recover a lost submission response');
         assert.equal((await call('/result?reference=known', undefined, prepared.cookie)).status, 400);
         assert.equal((await call('/result', undefined, 'reg_course.application=' + 'x'.repeat(43))).status, 401);
         assert.equal((await call('', { ...body, personal: { ...body.personal, full_name: 'Changed' } }, prepared.cookie)).status, 409);
@@ -139,9 +144,9 @@ test('public application transactions, validation and private recovery', async f
         await pool.query('DROP TRIGGER fail_test_log ON log');
         const free = await prepare([ids[0]]);
         assert.equal((await call('', payload(free), free.cookie)).status, 201);
-        assert.equal(Number((await call('/result', undefined, free.cookie)).data.receipt.submission.total), 0);
+        assert.equal(Number((await recover(free)).data.receipt.submission.total), 0);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM payment')).rows[0].n, 1);
-        assert.equal((await call('/result', undefined, free.cookie)).data.receipt.payment.state, 'not_required');
+        assert.equal((await recover(free)).data.receipt.payment.state, 'not_required');
         assert.equal(emailLinks[1], null);
         await call('/new', {}, free.cookie);
         assert.equal((await call('/result', undefined, free.cookie)).status, 401);
@@ -151,7 +156,7 @@ test('public application transactions, validation and private recovery', async f
         const savedDespiteMail = await call('', payload(emailFailure), emailFailure.cookie);
         assert.equal(savedDespiteMail.status, 201);
         assert.equal(savedDespiteMail.data.receipt.acknowledgement_email.status, 'failed');
-        assert.equal((await call('/result', undefined, emailFailure.cookie)).data.receipt.acknowledgement_email.status, 'failed');
+        assert.equal((await recover(emailFailure)).data.receipt.acknowledgement_email.status, 'failed');
         assert.equal((await call('', payload(emailFailure), emailFailure.cookie)).status, 200);
         assert.equal(sent, 3);
         assert.equal((await pool.query('SELECT COUNT(*)::int n FROM submission')).rows[0].n, 3);

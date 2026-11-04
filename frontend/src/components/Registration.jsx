@@ -10,9 +10,11 @@ function answerValue(bank, id) {
     return bank && Object.hasOwn(bank, id) ? bank[id] : undefined;
 }
 
-async function request(path, body, timeout = 15000) {
+async function request(path, body, timeout = 15000, reviewToken) {
     const response = await fetch(`/api/application${path}`, { signal: AbortSignal.timeout(timeout),
-        ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'reg-course' }, body: JSON.stringify(body) }) });
+        headers: { ...(reviewToken ? { 'X-Application-Review': reviewToken } : {}),
+            ...(body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Requested-With': 'reg-course' }) },
+        ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }) });
     const data = await response.json();
     if (!response.ok) throw Object.assign(new Error('Application request failed.'), { code: data.code, status: response.status });
     return data;
@@ -94,22 +96,6 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
     const [errors, setErrors] = useState([]);
     const [reload, setReload] = useState(0);
     const pending = useRef(false);
-    const receiptReference = draft?.receipt?.submission.reference;
-
-    useEffect(function refreshReceipt() {
-        if (!receiptReference) return;
-        let ignore = false;
-        async function refresh() {
-            try {
-                const data = await request('/result');
-                if (!ignore && data.receipt.submission.reference === receiptReference) onDraftChange({ receipt: data.receipt });
-            } catch { /* The saved receipt stays visible when recovery is temporarily unavailable. */ }
-        }
-        refresh();
-        window.addEventListener('focus', refresh);
-        return function stopRefreshing() { ignore = true; window.removeEventListener('focus', refresh); };
-    }, [receiptReference, onDraftChange]);
-
     useEffect(function focusErrors() {
         if (errors.length) document.getElementById('application-errors')?.focus();
     }, [errors]);
@@ -121,16 +107,6 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
             setBusy(true);
             setNotice('');
             try {
-                let receipt;
-                try { receipt = (await request('/result')).receipt; }
-                catch (error) { if (![401, 404].includes(error.status)) throw error; }
-                if (ignore) return;
-                if (receipt) {
-                    onDraftChange({ receipt });
-                    onCompleted();
-                    window.location.replace('#registration/acknowledgement');
-                    return;
-                }
                 if (page === 'registration/acknowledgement') return setNotice(draft?.definition ? 'previousAcknowledgementUnavailable' : 'receiptUnavailable');
                 if (!initialSelectedIds.length) return setNotice('applicationEmpty');
                 const data = await request('/definition', { course_ids: initialSelectedIds });
@@ -173,7 +149,7 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
             } else window.location.replace('#registration/review');
         } catch (error) {
             if (error.code === 'application_completed') {
-                try { await showReceipt((await request('/result')).receipt); }
+                try { await showReceipt((await request('/result', undefined, 15000, draft.review_token)).receipt); }
                 catch { setNotice('applicationUnknown'); }
             } else setNotice(error.code ? `applicationError_${error.code}` : 'applicationLoadError');
         } finally { pending.current = false; setBusy(false); }
@@ -191,7 +167,7 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
         } catch (error) {
             // A response may be lost after COMMIT. Read the browser-bound result first.
             try {
-                const result = await request('/result');
+                const result = await request('/result', undefined, 15000, payload.review_token);
                 await showReceipt(result.receipt);
             } catch {
                 if (error.status && error.status < 500) {
@@ -215,25 +191,11 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
         finally { pending.current = false; setBusy(false); }
     }
 
-    async function checkStatus() {
-        if (pending.current) return;
-        pending.current = true;
-        setBusy(true);
-        try {
-            const result = await request('/result');
-            onDraftChange({ receipt: result.receipt });
-            onNotice('applicationStatusChecked');
-        } catch {
-            onNotice('applicationCheckError', 'error');
-        } finally { pending.current = false; setBusy(false); }
-    }
-
     function discard() {
         if (!busy && !draft.pendingPayload && window.confirm(text.confirmDiscardApplication)) startNew();
     }
 
     const receipt = draft?.receipt;
-    const emailStatus = receipt?.acknowledgement_email?.status || 'not_requested';
     const acknowledgementPage = page === 'registration/acknowledgement';
     const reviewPage = page === 'registration/review';
     const step = receipt || acknowledgementPage ? 2 : reviewPage ? 1 : 0;
@@ -244,18 +206,12 @@ function Registration({ page, text, language, initialSelectedIds, draft, onDraft
         {notice && <p className="feedback error" role="alert">{text[notice] || text.applicationLoadError}</p>}
         {busy && <p role="status">{text.applicationWorking}</p>}
         {(!draft?.definition || acknowledgementPage) && !receipt ? <>
-            {!busy && <>{!notice && <p>{text.applicationLoading}</p>}<button type="button" onClick={function retry() { setReload(reload + 1); }}>{text.tryAgain}</button></>}
-            <p><a href="#selected">{text.reviewSelection}</a></p>
+            {!busy && !acknowledgementPage && <>{!notice && <p>{text.applicationLoading}</p>}<button type="button" onClick={function retry() { setReload(reload + 1); }}>{text.tryAgain}</button></>}
+            <p><a href={acknowledgementPage ? '#courses' : '#selected'}>{acknowledgementPage ? text.backToCourses : text.reviewSelection}</a></p>
             {draft?.definition && <p><a href={draft.pendingPayload ? '#registration/review' : '#registration'}
                 onClick={function returnToDraft() { setNotice(''); }}>{text.returnToApplication}</a></p>}
         </> : receipt ? <>
             <div className="application-received"><h2>{text.applicationReceived}</h2><p>{text.reference}: <strong>{receipt.submission.reference}</strong></p></div>
-            <section className="application-email-status" aria-labelledby="acknowledgement-email-heading">
-                <h2 id="acknowledgement-email-heading">{text.acknowledgementEmail}</h2>
-                <p role="status">{text[`email_${emailStatus}`] || text.email_uncertain}</p>
-                <button type="button" className="secondary-button" disabled={busy}
-                    onClick={checkStatus}>{text.checkStatus}</button>
-            </section>
             <div className="application-columns"><div>
                 <h2>{text.personalInformation}</h2><PersonalDetails personal={receipt.submission} text={text} />
                 <h2>{text.courseAnswers}</h2><Answers courses={receipt.registrations.map(function course(item) { return { ...item, id: item.course_id }; })}
