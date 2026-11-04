@@ -73,7 +73,7 @@ export default function SessionAttendance({ courseId, sessionId, text, language,
     const working = busy || resultBusy;
     return <div className="session-attendance" aria-busy={working}>
         <div className="attendance-actions"><button type="button" disabled={working || !data?.can_start} onClick={open}>{text.attTaking}</button>
-            <a href={`#admin/courses/${courseId}/attendance/${sessionId}/qr`}>{text.attShowQr}</a>
+            <a className="button secondary-button" href={`#admin/courses/${courseId}/attendance/${sessionId}/qr`}>{text.attShowQr}</a>
             <SessionAttendanceResults data={data} path={path} text={text} language={language} busy={working} onBusyChange={setResultBusy} load={load} onSessionExpired={onSessionExpired} onNotice={onNotice} /></div>
         {issue && <p className="feedback error" role="alert">{text[issue] || text.attendance_unavailable}</p>}
         {!data ? <p role="status">{text.attLoading}</p> : <>

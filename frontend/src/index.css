@@ -50,7 +50,7 @@
 @media (max-width: 600px) {
     .attendance-fullscreen { padding: 16px; }
     .attendance-correction { padding: 16px; }
-    .attendance-actions > button { flex: 1 1 auto; }
+    .attendance-actions > button, .attendance-actions > .button { flex: 1 1 auto; }
     .attendance-image-label { width: 100%; }
 }
 
